@@ -1,0 +1,7 @@
+[Desktop Entry]
+Name=EMWM Desktop
+Comment=Classic Motif desktop with automatic application menus and system tray
+Exec=/usr/bin/emwm-desktop-session
+TryExec=/usr/bin/emwm-desktop-session
+Type=Application
+DesktopNames=EMWM;

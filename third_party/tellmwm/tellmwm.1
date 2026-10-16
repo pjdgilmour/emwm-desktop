@@ -1,0 +1,42 @@
+.TH TELLMWM 1
+.SH NAME
+tellmwm \- Workspace control utility for EMWM window manager
+.SH SYNOPSIS
+tellmwm [<command> <arguments>]
+.SH DESCRIPTION
+\fBtellmwm\fP sends workspace commands to EMWM v2 and later.
+If no command is specified, \fBtellmwm\fP prints out current workspace
+configuration.
+.SH COMMANDS AND ARGUMENTS
+.IP "\fBbackdrop\fP <workspace ID> [-b <color> -f <color>] | [<image> | none]"
+A solid color, an image, or a combination of image and color may
+be specified as parameters. The keyword \fBnone\fP as image parameter
+causes the active backdrop image to be removed.
+.IP
+If an image file is specified and is a monochrome X bitmap (XBM), it will be
+recolored in such way that white bits are drawn in the specified background
+color and black bits in the specified foreground color. For color X pixmaps
+(XPM), background color parameter is used to fill translucent areas.
+The color parameter may be any valid X color (name or RGB) value.
+If the image file name doesn't contain a fully qualified path, it will be
+searched for in default locations as described in \fBemwm(1)\fP
+\fIWorkspace Backdrop Resources\fP section.
+.IP
+Any image file formats supported by the Motif widget toolkit may be specified.
+At the time of writing these include X pixmap/bitmap, PNG and JPEG images.
+.IP "\fBsetws\fP <workspace ID>" 
+Sets the active workspace.
+.IP "\fBaddws\fP [<workspace title>]"
+Adds a workspace. The optional parameter specifies new workspace title.
+.IP "\fBnamews\fP <workspace ID> <title>"
+Changes or sets workspace title.
+.IP "\fBdelws\fP <workspace ID>"
+Deletes a workspace.
+.IP "\fB-h | help\fP"
+Prints usage info.
+.IP "\fB-v\fP"
+Prints version info.
+.SH SEE ALSO
+emwm(1), XmGetPixmap(3), XQueryColor(3)
+.SH AUTHORS
+tellmwm was written by alx@fastestcode.org

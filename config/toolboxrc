@@ -1,0 +1,8 @@
+# Applications are discovered automatically through XDG/garcon.
+&Ambiente
+{
+    &Terminal: x-terminal-emulator
+    &Arquivos: pcmanfm
+    &Papel de parede: emwm-wallpaper-tool
+    &Bandeja: xmtray
+}

@@ -1,0 +1,10 @@
+[Desktop Entry]
+Name=EMWM Wallpaper
+Name[pt_BR]=Fundo de tela do EMWM
+Comment=Choose persistent wallpaper for EMWM workspaces
+Exec=/usr/lib/emwm-desktop/bin/emwm-wallpaper-tool
+Icon=preferences-desktop-wallpaper
+Terminal=false
+Type=Application
+Categories=Settings;DesktopSettings;
+OnlyShowIn=EMWM;

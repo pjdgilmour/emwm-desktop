@@ -1,0 +1,10 @@
+/build/
+/dist/
+*.deb
+*.o
+__pycache__/
+/apps/emwm-wallpaper-tool/build/
+/third_party/tellmwm/tellmwm
+/.agents/
+/.codex/
+/.aws/

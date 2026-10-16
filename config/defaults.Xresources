@@ -1,0 +1,15 @@
+! Classic Motif defaults, independent of monitor model or GTK theme.
+*background: #d2d2d2
+*foreground: #000000
+*renderTable: variable
+*renderTable.variable.fontType: FONT_IS_XFT
+*renderTable.variable.fontName: Liberation Sans
+*renderTable.variable.fontSize: 10
+Emwm*workspaceCount: 4
+Emwm*client*background: #8c8c8c
+Emwm*client*activeBackground: #7399ba
+XmTray.geometry: +8+360
+XmTray.iconSize: 24
+XmTray.occupyAll: True
+XTerm*faceName: Liberation Mono
+XTerm*faceSize: 11

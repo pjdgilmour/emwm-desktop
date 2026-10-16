@@ -1,0 +1,10 @@
+{
+  "emwm": {
+    "url": "https://github.com/pjdgilmour/emwm.git",
+    "revision": "aca6f5afb1a50c65839427b9ffa5868341a2fbbf"
+  },
+  "emwm-utils": {
+    "url": "https://github.com/pjdgilmour/emwm-utils.git",
+    "revision": "d88dfeaad7cf60e9397a86e37949cbb1ddd4a07b"
+  }
+}

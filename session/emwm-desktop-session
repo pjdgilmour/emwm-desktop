@@ -1,0 +1,74 @@
+#!/bin/sh
+# SPDX-License-Identifier: GPL-3.0-only
+# A separate session: no edits to .profile, .Xprofile, .Xresources or XFCE.
+EMWM_DESKTOP_PREFIX=/usr/lib/emwm-desktop
+EMWM_DESKTOP_DATA=/usr/share/emwm-desktop
+export EMWM_DESKTOP_PREFIX EMWM_DESKTOP_DATA
+if [ -z "${DISPLAY:-}" ]; then
+    echo 'EMWM Desktop requires an X11 display.' >&2
+    exit 1
+fi
+# xinit without a display manager may not have a session bus yet.
+if [ -z "${DBUS_SESSION_BUS_ADDRESS:-}" ]; then
+    if [ -S "${XDG_RUNTIME_DIR:-/run/user/$(id -u)}/bus" ]; then
+        DBUS_SESSION_BUS_ADDRESS="unix:path=${XDG_RUNTIME_DIR:-/run/user/$(id -u)}/bus"
+        export DBUS_SESSION_BUS_ADDRESS
+    else
+        exec dbus-run-session -- "$0" "$@"
+    fi
+fi
+PATH="$EMWM_DESKTOP_PREFIX/bin:$HOME/.local/bin:$PATH"
+XDG_CURRENT_DESKTOP=EMWM
+XDG_SESSION_DESKTOP=emwm-desktop
+XDG_SESSION_TYPE=x11
+XFILESEARCHPATH="$EMWM_DESKTOP_DATA/app-defaults/%N${XFILESEARCHPATH:+:$XFILESEARCHPATH}"
+# Include this distribution's directory metadata while preserving the XDG path.
+XDG_DATA_DIRS="$EMWM_DESKTOP_DATA:${XDG_DATA_DIRS:-/usr/local/share:/usr/share}"
+export PATH XDG_CURRENT_DESKTOP XDG_SESSION_DESKTOP XDG_SESSION_TYPE XFILESEARCHPATH XDG_DATA_DIRS
+state_dir=${XDG_STATE_HOME:-"$HOME/.local/state"}/emwm-desktop
+mkdir -p "$state_dir"
+[ ! -f "$state_dir/session.log" ] || mv -f "$state_dir/session.log" "$state_dir/session.log.old"
+exec >>"$state_dir/session.log" 2>&1
+# Existing user customizations remain authoritative. Do not require this file.
+# shellcheck disable=SC1091
+[ ! -f "$HOME/.Xprofile" ] || . "$HOME/.Xprofile"
+config_dir=${XDG_CONFIG_HOME:-"$HOME/.config"}/emwm-desktop
+EMWM_DESKTOP_COMPOSITOR=1
+EMWM_DESKTOP_TRAY=1
+EMWM_DESKTOP_NETWORK=1
+EMWM_DESKTOP_KEYRING=1
+EMWM_DESKTOP_POLKIT=1
+EMWM_DESKTOP_PICOM_BACKEND=xrender
+# shellcheck disable=SC1091
+[ ! -f "$config_dir/session.conf" ] || . "$config_dir/session.conf"
+# Restore the private binaries in PATH if a user profile replaced PATH entirely.
+PATH="$EMWM_DESKTOP_PREFIX/bin:$PATH"
+export PATH
+xrdb -merge "$EMWM_DESKTOP_DATA/defaults.Xresources"
+[ ! -f "$HOME/.Xdefaults" ] || xrdb -merge "$HOME/.Xdefaults"
+[ ! -f "$HOME/.Xresources" ] || xrdb -merge "$HOME/.Xresources"
+dbus-update-activation-environment --systemd DISPLAY XAUTHORITY XDG_CURRENT_DESKTOP XDG_SESSION_DESKTOP XDG_SESSION_TYPE PATH XFILESEARCHPATH XDG_DATA_DIRS || :
+# Only these optional helpers are launched; no full desktop autostart scanner.
+uid=$(id -u)
+start_once() {
+    pattern=$1
+    shift
+    if command -v "$1" >/dev/null 2>&1 && ! pgrep -u "$uid" -f "$pattern" >/dev/null 2>&1; then
+        "$@" &
+    fi
+}
+# Selection ownership makes a second xmtray harmless on the same X screen.
+if [ "$EMWM_DESKTOP_TRAY" = 1 ]; then xmtray & fi
+if [ "$EMWM_DESKTOP_COMPOSITOR" = 1 ]; then
+    start_once '^(/[^ ]*/)?picom([[:space:]]|$)' picom --backend "$EMWM_DESKTOP_PICOM_BACKEND" --config "$EMWM_DESKTOP_DATA/picom.conf"
+fi
+if [ "$EMWM_DESKTOP_POLKIT" = 1 ]; then
+    start_once '^(/[^ ]*/)?polkit-mate-authentication-agent-1([[:space:]]|$)' /usr/libexec/polkit-mate-authentication-agent-1
+fi
+if [ "$EMWM_DESKTOP_KEYRING" = 1 ]; then
+    gnome-keyring-daemon --start --components=secrets,pkcs11 || :
+fi
+if [ "$EMWM_DESKTOP_NETWORK" = 1 ]; then
+    start_once '^(/[^ ]*/)?nm-applet([[:space:]]|$)' nm-applet
+fi
+exec "$EMWM_DESKTOP_PREFIX/bin/xmsm"

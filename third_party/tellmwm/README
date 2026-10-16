@@ -1,0 +1,6 @@
+TELLMWM is a workspace control utility for EMWM v2+
+X11 Xlib headers must be installed in order to build it.
+
+Adjust the installation PREFIX in the makefile (defaults to /usr)
+
+Run "make" then "make install" as root
