@@ -153,3 +153,20 @@ persistência dos fundos em servidores Xvfb privados. Também verificam o conte�
 do pacote e a inicialização da sessão completa extraída do `.deb`. Não substituem o WM da
 sessão em uso. O pacote inclui `sources.tar.xz` com os fontes dos binários e os
 scripts usados na compilação, além das licenças correspondentes.
+
+## Aparência do ambiente e do login
+
+A ferramenta **Aparência do EMWM** permite selecionar tema GTK, ícones, cursor,
+tamanho do cursor e cores Motif opcionais. A prévia não grava preferências.
+Há integração com LightDM GTK Greeter mediante autenticação administrativa,
+sem reiniciar o gerenciador de login. Outros gerenciadores são detectados, mas
+não recebem alterações. Temas do login precisam estar instalados globalmente.
+
+```sh
+# Instalar apenas a ferramenta em uma instalação EMWM já existente:
+sudo ./apps/emwm-appearance/install-system.sh
+emwm-appearance
+```
+
+O pacote completo também inclui a ferramenta e suas dependências. Consulte
+[os detalhes de uso, backups e compatibilidade](apps/emwm-appearance/README.md).

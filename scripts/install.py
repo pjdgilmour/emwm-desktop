@@ -18,18 +18,19 @@ ROOT = Path(__file__).resolve().parent.parent
 PREFIX = '/usr/lib/emwm-desktop'
 DATA = '/usr/share/emwm-desktop'
 BUILD_DEPS = [
-    'build-essential', 'git', 'ca-certificates', 'python3', 'cmake', 'pkg-config',
+    'build-essential', 'git', 'ca-certificates', 'python3', 'python3-pil', 'cmake', 'pkg-config',
     'dpkg-dev', 'libmotif-dev', 'libx11-dev', 'libxt-dev', 'libxext-dev',
     'libxrender-dev', 'libxrandr-dev', 'libxinerama-dev', 'libxss-dev',
     'libcrypt-dev', 'libgarcon-1-dev', 'libglib2.0-dev', 'libgtkmm-3.0-dev',
 ]
 TEST_DEPS = ['xvfb', 'x11-xserver-utils', 'x11-utils', 'libxtst-dev',
              'libxcomposite-dev', 'picom', 'dbus-daemon', 'procps',
-             'fonts-liberation', 'xfonts-base']
+             'fonts-liberation', 'xfonts-base', 'python3-gi', 'python3-pil', 'gir1.2-gtk-3.0', 'xsettingsd']
 RUNTIME = [
     'xserver-xorg', 'xinit', 'x11-xserver-utils', 'x11-utils', 'xterm', 'pcmanfm',
     'picom', 'mate-polkit', 'gnome-keyring', 'libpam-gnome-keyring',
     'dbus-user-session', 'dbus-x11', 'xdg-utils', 'fonts-liberation', 'procps',
+    'python3-gi', 'python3-pil', 'gir1.2-gtk-3.0', 'xsettingsd', 'pkexec',
 ]
 
 
@@ -118,6 +119,10 @@ def build(args):
             run(['make', 'test-x11'], cwd=utils)
             env = dict(os.environ, EMWM_BINARY=str(wm / 'src/emwm'))
             run(['cmake', '--build', wallpaper, '--target', 'test-x11'], env=env)
+        run([sys.executable, '-m', 'unittest', 'discover', '-s',
+             ROOT / 'apps/emwm-appearance/tests', '-v'])
+        if args.test:
+            run(['sh', ROOT / 'apps/emwm-appearance/tests/run-x11.sh'])
         stage = work / 'debian/emwm-desktop'
         bin_dir = stage / PREFIX.lstrip('/') / 'bin'
         data_dir = stage / DATA.lstrip('/')
@@ -136,6 +141,11 @@ def build(args):
             copy(src, data_dir / 'desktop-directories' / src.name)
         for src in (ROOT / 'config').iterdir():
             copy(src, data_dir / src.name)
+        appearance = ROOT / 'apps/emwm-appearance'
+        for name in ['core.py', 'gui.py', 'runtime.py', 'login_helper.py', 'wallpaper.py', 'wallpaper_ui.py']:
+            copy(appearance / name, stage / PREFIX.lstrip('/') / 'appearance' / name)
+        copy(appearance / 'emwm-appearance', stage / 'usr/bin/emwm-appearance', 0o755)
+        copy(appearance / 'emwm-appearance.desktop', stage / 'usr/share/applications/emwm-appearance.desktop')
         copy(ROOT / 'session/emwm-desktop-session', stage / 'usr/bin/emwm-desktop-session', 0o755)
         copy(ROOT / 'packaging/emwm-desktop.desktop', stage / 'usr/share/xsessions/emwm-desktop.desktop')
         copy(ROOT / 'packaging/emwm-wallpaper-tool.desktop', stage / 'usr/share/applications/emwm-desktop-wallpaper.desktop')

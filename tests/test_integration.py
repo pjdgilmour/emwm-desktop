@@ -103,7 +103,10 @@ class PackageTests(unittest.TestCase):
         return self.archive.extractfile(self.files[path]).read()
 
     def test_private_layout_and_permissions(self):
-        required=['usr/bin/emwm-desktop-session','usr/share/xsessions/emwm-desktop.desktop',
+        required=['usr/bin/emwm-appearance','usr/lib/emwm-desktop/appearance/login_helper.py',
+                  'usr/lib/emwm-desktop/appearance/wallpaper.py',
+                  'usr/lib/emwm-desktop/appearance/wallpaper_ui.py',
+                  'usr/bin/emwm-desktop-session','usr/share/xsessions/emwm-desktop.desktop',
                   'usr/share/emwm-desktop/app-defaults/Emwm','usr/share/emwm-desktop/app-defaults/XmSm',
                   'usr/share/emwm-desktop/emwm-applications.menu']
         for name in ['emwm','xmsm','xmtoolbox','xmtray','tellmwm','emwm-wallpaper-tool']:
@@ -117,7 +120,7 @@ class PackageTests(unittest.TestCase):
             self.assertEqual((member.uid,member.gid),(0,0))
             self.assertTrue(path.startswith(('usr/lib/emwm-desktop/','usr/share/emwm-desktop/',
                                             'usr/share/doc/emwm-desktop/','usr/share/applications/',
-                                            'usr/share/xsessions/')) or path=='usr/bin/emwm-desktop-session', path)
+                                            'usr/share/xsessions/')) or path in ('usr/bin/emwm-desktop-session','usr/bin/emwm-appearance'), path)
         self.assertNotIn('usr/bin/emwm',self.files)
         for member in self.archive.getmembers():
             if member.isdir():

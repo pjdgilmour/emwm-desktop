@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=Aparência do EMWM
+Comment=Temas, ícones, cursor e aparência da tela de login
+Exec=emwm-appearance
+Icon=preferences-desktop-theme
+Terminal=false
+Categories=Settings;DesktopSettings;
+StartupNotify=true

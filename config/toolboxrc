@@ -4,5 +4,6 @@
     &Terminal: x-terminal-emulator
     &Arquivos: pcmanfm
     &Papel de parede: emwm-wallpaper-tool
+    &Aparencia: emwm-appearance
     &Bandeja: xmtray
 }

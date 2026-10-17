@@ -41,6 +41,12 @@ EMWM_DESKTOP_POLKIT=1
 EMWM_DESKTOP_PICOM_BACKEND=xrender
 # shellcheck disable=SC1091
 [ ! -f "$config_dir/session.conf" ] || . "$config_dir/session.conf"
+# Appearance selections take precedence over a fixed GTK_THEME in old profiles.
+if [ -f "$config_dir/appearance/session.sh" ]; then
+    # shellcheck disable=SC1091
+    . "$config_dir/appearance/session.sh"
+    if command -v emwm-appearance >/dev/null 2>&1; then emwm-appearance --session; fi
+fi
 # Restore the private binaries in PATH if a user profile replaced PATH entirely.
 PATH="$EMWM_DESKTOP_PREFIX/bin:$PATH"
 export PATH
