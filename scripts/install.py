@@ -25,12 +25,12 @@ BUILD_DEPS = [
 ]
 TEST_DEPS = ['xvfb', 'x11-xserver-utils', 'x11-utils', 'libxtst-dev',
              'libxcomposite-dev', 'picom', 'dbus-daemon', 'procps',
-             'fonts-liberation', 'xfonts-base', 'python3-gi', 'python3-pil', 'gir1.2-gtk-3.0', 'xsettingsd']
+             'fonts-liberation', 'xfonts-base', 'python3-gi', 'python3-gi-cairo', 'python3-pil', 'gir1.2-gtk-3.0', 'xsettingsd']
 RUNTIME = [
     'xserver-xorg', 'xinit', 'x11-xserver-utils', 'x11-utils', 'xterm', 'pcmanfm',
     'picom', 'mate-polkit', 'gnome-keyring', 'libpam-gnome-keyring',
     'dbus-user-session', 'dbus-x11', 'xdg-utils', 'fonts-liberation', 'procps',
-    'python3-gi', 'python3-pil', 'gir1.2-gtk-3.0', 'xsettingsd', 'pkexec',
+    'python3-gi', 'python3-gi-cairo', 'python3-pil', 'gir1.2-gtk-3.0', 'xsettingsd', 'pkexec',
 ]
 
 

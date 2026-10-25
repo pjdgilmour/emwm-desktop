@@ -7,7 +7,7 @@ from pathlib import Path
 import subprocess
 import sys
 import threading
-from core import Settings, PALETTES, detect_login
+from core import Settings, PALETTES, COLOR_FIELDS, palette_colors, detect_login
 
 
 def trusted_helper(background=False):
@@ -84,6 +84,29 @@ def main():
             self.palette.set_active_id(original.get('palette','keep'))
             grid.attach(Gtk.Label(label='Cores das janelas Motif',xalign=0),0,4,1,1)
             grid.attach(self.palette,1,4,1,1)
+            self.color_buttons={}
+            colors_frame=Gtk.Frame(label='Cores do tema e da decoração')
+            colors_grid=Gtk.Grid(column_spacing=16,row_spacing=8)
+            colors_grid.set_border_width(10)
+            colors_frame.add(colors_grid)
+            outer.pack_start(colors_frame,False,False,0)
+            initial_colors=original.get('colors',settings.motif_colors())
+            for row,(key,(label,default)) in enumerate(COLOR_FIELDS.items()):
+                button=Gtk.ColorButton()
+                button.set_title(label); button.set_use_alpha(False)
+                color=Gdk.RGBA()
+                if not color.parse(initial_colors.get(key,default)): color.parse(default)
+                button.set_rgba(color)
+                button.connect('color-set',self.color_changed)
+                colors_grid.attach(Gtk.Label(label=label,xalign=0),0,row,1,1)
+                colors_grid.attach(button,1,row,1,1)
+                self.color_buttons[key]=button
+            self.decoration_preview=Gtk.DrawingArea()
+            self.decoration_preview.set_size_request(420,100)
+            self.decoration_preview.connect('draw',self.draw_decoration)
+            colors_grid.attach(self.decoration_preview,0,len(COLOR_FIELDS),2,1)
+            self.palette.connect('changed',self.palette_changed)
+            self.palette_changed()
             frame=Gtk.Frame(label='Prévia local — nenhuma preferência é salva até Aplicar')
             demo=Gtk.Box(orientation=Gtk.Orientation.VERTICAL,spacing=8)
             demo.set_border_width(12)
@@ -127,7 +150,48 @@ def main():
 
         def values(self):
             return {**{key:combo.get_active_id() for key,combo in self.combos.items()},
-                    'size':self.size.get_value_as_int(),'palette':self.palette.get_active_id()}
+                    'size':self.size.get_value_as_int(),'palette':self.palette.get_active_id(),
+                    'colors':{key:self.color_hex(button.get_rgba()) for key,button in self.color_buttons.items()}}
+
+        @staticmethod
+        def color_hex(color):
+            return '#'+''.join(f'{round(channel*255):02x}' for channel in (color.red,color.green,color.blue))
+
+        def color_changed(self,*_):
+            self.palette.set_active_id('custom')
+            self.decoration_preview.queue_draw()
+
+        def palette_changed(self,*_):
+            name=self.palette.get_active_id()
+            if name == 'custom':
+                self.decoration_preview.queue_draw()
+                return
+            colors=settings.motif_colors() if name == 'keep' else palette_colors(name)
+            for key,button in self.color_buttons.items():
+                color=Gdk.RGBA()
+                if not color.parse(colors[key]): color.parse(COLOR_FIELDS[key][1])
+                button.set_rgba(color)
+            self.decoration_preview.queue_draw()
+
+        def draw_decoration(self,widget,cr):
+            colors={key:button.get_rgba() for key,button in self.color_buttons.items()}
+            def fill(key,x,y,w,h):
+                color=colors[key]; cr.set_source_rgb(color.red,color.green,color.blue)
+                cr.rectangle(x,y,w,h); cr.fill()
+            width=widget.get_allocated_width()
+            for x,key,label in [(4,'Emwm*client*background','Janela inativa'),
+                                (width/2+4,'Emwm*client*activeBackground','Janela ativa')]:
+                w=width/2-12
+                fill(key,x,4,w,88)
+                fill('*background',x+5,31,w-10,56)
+                # Contrast only for the explanatory preview labels, not a WM resource.
+                color=colors[key]
+                shade=0 if .299*color.red+.587*color.green+.114*color.blue > .5 else 1
+                cr.set_source_rgb(shade,shade,shade); cr.move_to(x+8,23); cr.show_text(label)
+                color=colors['*foreground']; cr.set_source_rgb(color.red,color.green,color.blue)
+                cr.move_to(x+12,54); cr.show_text('Texto Motif')
+                fill('Emwm*icon*activeBackground',x+12,64,24,16)
+            return False
 
         def show_wallpaper(self,*_):
             from wallpaper_ui import show
@@ -159,6 +223,11 @@ def main():
             for key,kind in [('theme','gtk'),('icons','icons'),('cursor','cursor')]:
                 self.populate(key,kind,self.combos[key],values[key])
             self.size.set_value(values['size']); self.palette.set_active_id(values['palette'])
+            if values['palette']=='custom':
+                for key,button in self.color_buttons.items():
+                    color=Gdk.RGBA(); color.parse(values['colors'][key]); button.set_rgba(color)
+                self.decoration_preview.queue_draw()
+            else: self.palette_changed()
             self.status.set_text('Temas e preferências recarregados.'); self.preview()
 
         def on_apply(self,*_):
@@ -173,6 +242,7 @@ def main():
                 backup=settings.apply(values)
                 notes=apply_live(settings,values)
                 self.status.set_text('Aplicado à sessão. Backup: '+str(backup)+'\n'+'\n'.join(notes)+
+                    '\nCores Motif: reinicie o EMWM para atualizar as decorações e reabra os aplicativos Motif.'+
                     '\nSe a sessão foi iniciada com GTK_THEME fixado, saia e entre novamente uma vez para liberar a troca de tema em todos os aplicativos.')
                 if login:
                     self.busy=True; self.apply.set_sensitive(False); self.reset.set_sensitive(False)

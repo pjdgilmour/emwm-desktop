@@ -14,9 +14,27 @@ import tempfile
 
 PALETTES = {
     'keep': ('Manter as cores atuais', None),
+    'custom': ('Cores personalizadas', None),
     'irix': ('IRIX clássico', ('#d2d2d2', '#000000', '#8c8c8c', '#aba68c')),
     'classic': ('Motif cinza', ('#bdbdbd', '#000000', '#a0a0a0', '#7399ba')),
 }
+
+
+# Resource names and decoration controls follow apps/Troca_cor/trocacor.cpp.
+COLOR_FIELDS = {
+    '*background': ('Fundo dos aplicativos Motif', '#d2d2d2'),
+    '*foreground': ('Texto dos aplicativos Motif', '#000000'),
+    'Emwm*client*background': ('Decoração da janela inativa', '#8c8c8c'),
+    'Emwm*client*activeBackground': ('Decoração da janela ativa', '#7399ba'),
+    'Emwm*icon*activeBackground': ('Cor de seleção do ícone', '#7399ba'),
+}
+
+
+def palette_colors(name):
+    palette = PALETTES[name][1]
+    if not palette: return {key: default for key, (_, default) in COLOR_FIELDS.items()}
+    bg, fg, frame, active = palette
+    return dict(zip(COLOR_FIELDS, (bg, fg, frame, active, active)))
 
 
 def valid_name(value):
@@ -177,6 +195,25 @@ class Settings:
             if key == 'theme' and 'GTK 3' not in theme.system_capabilities:
                 raise ValueError('O LightDM GTK Greeter precisa de um tema GTK 3 instalado para todo o sistema.')
 
+    def motif_colors(self):
+        """Read the same fields as trocacor, including our managed include, in order."""
+        colors = palette_colors('keep')
+        def visit(path, stack=()):
+            path = path.resolve()
+            if path in stack or len(stack) >= 16: return
+            for line in read(path).splitlines():
+                include = re.fullmatch(r'\s*#include\s+"([^"\n]+)"\s*', line)
+                if include:
+                    child = Path(include[1]).expanduser()
+                    visit(child if child.is_absolute() else path.parent/child, (*stack, path))
+                    continue
+                key, separator, value = line.partition(':')
+                if separator and key.strip() in COLOR_FIELDS and value.strip():
+                    colors[key.strip()] = value.strip()
+        visit(self.home/'.Xdefaults')
+        visit(self.home/'.Xresources')
+        return colors
+
     def current(self):
         saved = read(self.directory/'selection.json')
         if saved:
@@ -198,6 +235,13 @@ class Settings:
         result['palette'] = values.get('palette','keep')
         if not 8 <= result['size'] <= 128: raise ValueError('Tamanho de cursor deve estar entre 8 e 128.')
         if result['palette'] not in PALETTES: raise ValueError('Paleta inválida.')
+        if 'colors' in values or result['palette'] == 'custom':
+            colors = values.get('colors')
+            if not isinstance(colors, dict) or set(colors) != set(COLOR_FIELDS):
+                raise ValueError('Selecione todas as cores do tema personalizado.')
+            if any(not isinstance(value, str) or not re.fullmatch(r'#[0-9a-fA-F]{6}', value) for value in colors.values()):
+                raise ValueError('Cor inválida: use o formato #RRGGBB.')
+            result['colors'] = {key: value.lower() for key, value in colors.items()}
         return result
 
     def apply(self, values):
@@ -217,7 +261,9 @@ class Settings:
         changes[path] = managed_block(read(path),'EMWM APPEARANCE',content)
         resources = f'Xcursor.theme: {values["cursor"]}\nXcursor.size: {values["size"]}\n'
         palette = PALETTES[values['palette']][1]
-        if palette:
+        if values['palette'] == 'custom':
+            resources += ''.join(f'{key}: {values["colors"][key]}\n' for key in COLOR_FIELDS)
+        elif palette:
             bg,fg,frame,active = palette
             resources += f'*background: {bg}\n*foreground: {fg}\nEmwm*client*background: {frame}\nEmwm*client*activeBackground: {active}\nEmwm*icon*activeBackground: {active}\n'
         else:

@@ -78,10 +78,16 @@ de iniciar o WM e os utilitários. Logs ficam em
 `~/.local/state/emwm-desktop/session.log` (ou em `XDG_STATE_HOME`).
 
 Para selecionar o fundo, use **Ambiente → Papel de parede** no Toolchest. O caminho
-da imagem precisa continuar disponível no próximo login. A ferramenta cria
+da imagem original é preservado para futuros ajustes. A ferramenta cria
 `~/.config/emwm/backdrops.resources` e uma inclusão em `.Xresources`, preservando
-seu conteúdo e criando backup antes da alteração. A imagem é apresentada pelo
-modo nativo do EMWM; não há redimensionamento automático.
+seu conteúdo e criando backup antes da alteração. Há opções de ajustar sem recorte,
+preencher com recorte, esticar, centralizar e mosaico, com cor de fundo por workspace.
+Em **Configurar fundo por monitor…**, escolha imagens e modos independentes para
+cada saída. A orientação vertical é detectada via RandR; há também giro manual
+da imagem por monitor.
+As cópias preparadas ficam em `~/.config/emwm/wallpapers/` e são restauradas pelo
+EMWM no login. Após mudar a resolução ou a disposição dos monitores, aplique o
+fundo novamente na ferramenta.
 
 O `xmtray` implementa bandeja X11/XEmbed, com menus nativos dos aplicativos.
 Aplicativos exclusivamente StatusNotifier/AppIndicator sem alternativa XEmbed
@@ -157,7 +163,9 @@ scripts usados na compilação, além das licenças correspondentes.
 ## Aparência do ambiente e do login
 
 A ferramenta **Aparência do EMWM** permite selecionar tema GTK, ícones, cursor,
-tamanho do cursor e cores Motif opcionais. A prévia não grava preferências.
+tamanho do cursor e cores Motif opcionais. As cores de fundo, texto, decoração
+ativa/inativa e seleção de ícones podem ser editadas com base no `trocacor.cpp`.
+A prévia não grava preferências; a aplicação preserva os backups.
 Há integração com LightDM GTK Greeter mediante autenticação administrativa,
 sem reiniciar o gerenciador de login. Outros gerenciadores são detectados, mas
 não recebem alterações. Temas do login precisam estar instalados globalmente.

@@ -9,6 +9,7 @@
 #include <fstream>
 #include <memory>
 #include <regex>
+#include <set>
 #include <sstream>
 #include <stdexcept>
 #include <string>
@@ -62,8 +63,7 @@ void writeAtomic(fs::path path, const std::string& contents, bool backup) {
     }
 }
 
-std::string encodeImage(const fs::path& path) {
-    const std::string name = fs::absolute(path).string();
+std::string encodeValue(const std::string& name) {
     // EMWM's GetString strips trailing whitespace even inside quotes.
     if (name.empty() || std::isspace(static_cast<unsigned char>(name.back())) ||
         name.find_first_of("\n\r") != std::string::npos || name.find('\0') != std::string::npos) {
@@ -78,6 +78,10 @@ std::string encodeImage(const fs::path& path) {
         else value += c;
     }
     return value + '"';
+}
+
+std::string encodeImage(const fs::path& path) {
+    return encodeValue(fs::absolute(path).string());
 }
 
 std::string decodeImage(const std::string& value) {
@@ -126,6 +130,20 @@ fs::path resourceFile(const fs::path& home) {
     return fs::absolute(home) / ".config/emwm/backdrops.resources";
 }
 
+bool validMode(const std::string& mode) {
+    return mode == "fit" || mode == "zoom" || mode == "stretch" ||
+           mode == "center" || mode == "tile";
+}
+
+bool validColor(const std::string& color) {
+    return std::regex_match(color, std::regex("#[0-9a-fA-F]{6}"));
+}
+
+bool validRotation(const std::string& rotation) {
+    return rotation == "auto" || rotation == "0" || rotation == "90" ||
+           rotation == "180" || rotation == "270";
+}
+
 std::string tellmwmImageArgument(const fs::path& image) {
     // tellmwm wraps the argument in quotes without escaping it. The WM then
     // tokenizes both the IPC request and the backdrop value. Quote both layers.
@@ -162,14 +180,81 @@ Paths readSaved(const fs::path& home) {
     return paths;
 }
 
+Selections readSelections(const fs::path& home) {
+    const auto paths = readSaved(home);
+    Selections selections{};
+    const auto file = resourceFile(home);
+    const auto contents = fs::exists(file) ? readFile(file) : "";
+    XrmInitialize();
+    std::unique_ptr<std::remove_pointer_t<XrmDatabase>, decltype(&XrmDestroyDatabase)>
+        database(XrmGetStringDatabase(contents.c_str()), XrmDestroyDatabase);
+    for (int i = 0; i < workspaceCount; ++i) {
+        if (!paths[i]) continue;
+        Selection selected{*paths[i]};
+        const auto get = [&](const std::string& field) -> std::string {
+            const auto key = "EmwmWallpaperTool.ws" + std::to_string(i) + "." + field;
+            XrmValue value{};
+            char* type = nullptr;
+            if (database && XrmGetResource(database.get(), key.c_str(), key.c_str(), &type, &value))
+                return value.addr;
+            return {};
+        };
+        const auto countText = get("monitorCount");
+        if (!countText.empty()) {
+            if (!std::regex_match(countText, std::regex("[0-9]{1,2}")))
+                throw std::runtime_error("Lista de monitores inválida.");
+            const int count = std::stoi(countText);
+            if (count > 64) throw std::runtime_error("Monitores demais na configuração.");
+            if (count) selected.source.clear();
+            std::set<std::string> names;
+            for (int m = 0; m < count; ++m) {
+                const auto prefix = "monitor" + std::to_string(m) + ".";
+                MonitorSelection monitor;
+                monitor.name = decodeImage(get(prefix + "name"));
+                monitor.source = decodeImage(get(prefix + "source"));
+                monitor.mode = get(prefix + "mode");
+                monitor.color = get(prefix + "color");
+                monitor.rotation = get(prefix + "rotation");
+                if (!validMode(monitor.mode) || !validColor(monitor.color) ||
+                    !validRotation(monitor.rotation) || !names.insert(monitor.name).second)
+                    throw std::runtime_error("Configuração de monitor inválida.");
+                selected.monitors.push_back(monitor);
+            }
+        }
+        const auto source = get("source");
+        if (!source.empty()) selected.source = decodeImage(source);
+        const auto mode = get("mode");
+        if (validMode(mode)) selected.mode = mode;
+        const auto color = get("color");
+        if (validColor(color)) selected.color = color;
+        selections[i] = selected;
+    }
+    return selections;
+}
+
 fs::path save(const fs::path& home, const std::vector<int>& workspaces,
-              const std::vector<fs::path>& images) {
+              const std::vector<fs::path>& images, const std::vector<Selection>& updates) {
     if (workspaces.size() != images.size()) throw std::runtime_error("Plano de aplicação inválido.");
+    if (!updates.empty() && updates.size() != workspaces.size())
+        throw std::runtime_error("Seleções de fundo inválidas.");
     auto paths = readSaved(home);
+    auto selections = readSelections(home);
     for (size_t i = 0; i < workspaces.size(); ++i) {
         if (workspaces[i] < 0 || workspaces[i] >= workspaceCount)
             throw std::runtime_error("Workspace inválido.");
         paths[workspaces[i]] = fs::absolute(images[i]);
+        const Selection selected = updates.empty() ? Selection{images[i]} : updates[i];
+        if ((selected.source.empty() && selected.monitors.empty()) || !validMode(selected.mode) || !validColor(selected.color))
+            throw std::runtime_error("Imagem, posicionamento ou cor de fundo inválidos.");
+        if (selected.monitors.size() > 64) throw std::runtime_error("Monitores demais.");
+        std::set<std::string> names;
+        for (const auto& monitor : selected.monitors) {
+            if (monitor.name.empty() || monitor.source.empty() || !validMode(monitor.mode) ||
+                !validColor(monitor.color) || !validRotation(monitor.rotation) ||
+                !names.insert(monitor.name).second)
+                throw std::runtime_error("Configuração de monitor inválida.");
+        }
+        selections[workspaces[i]] = selected;
     }
     std::ostringstream resources;
     resources << "! Gerenciado pelo emwm-wallpaper-tool.\n";
@@ -178,6 +263,21 @@ fs::path save(const fs::path& home, const std::vector<int>& workspaces,
         if (!paths[i]) continue;
         found = true;
         resources << "Emwm*ws" << i << "*backdrop*image: " << encodeImage(*paths[i]) << '\n';
+        const auto& selected = *selections[i];
+        const auto prefix = "EmwmWallpaperTool.ws" + std::to_string(i) + ".";
+        if (!selected.source.empty()) resources << prefix << "source: " << encodeImage(selected.source) << '\n';
+        resources << prefix << "mode: " << selected.mode << '\n'
+                  << prefix << "color: " << selected.color << '\n'
+                  << prefix << "monitorCount: " << selected.monitors.size() << '\n';
+        for (size_t m = 0; m < selected.monitors.size(); ++m) {
+            const auto& monitor = selected.monitors[m];
+            const auto key = prefix + "monitor" + std::to_string(m) + ".";
+            resources << key << "name: " << encodeValue(monitor.name) << '\n'
+                      << key << "source: " << encodeImage(monitor.source) << '\n'
+                      << key << "mode: " << monitor.mode << '\n'
+                      << key << "color: " << monitor.color << '\n'
+                      << key << "rotation: " << monitor.rotation << '\n';
+        }
     }
     if (!found) throw std::runtime_error("Nenhum fundo salvo para migrar.");
     const fs::path file = resourceFile(home);

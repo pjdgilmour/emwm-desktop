@@ -3,13 +3,15 @@
 set -eu
 probe=$1
 tool=$2
+render_probe=$3
+ui_probe=$4
 : "${EMWM_BINARY:?Set EMWM_BINARY to the EMWM executable}"
 work=$(mktemp -d)
 xpid=; wmpid=
 cleanup() {
     [ -z "$wmpid" ] || kill -KILL "$wmpid" 2>/dev/null || :
     [ -z "$xpid" ] || kill "$xpid" 2>/dev/null || :
-    if [ "$1" != 0 ]; then cat "$work"/*.log 2>/dev/null || :; fi
+    if [ "$1" != 0 ]; then tail -n 80 "$work"/*.log 2>/dev/null || :; fi
     rm -rf "$work"
 }
 trap 'cleanup $?' EXIT
@@ -19,14 +21,17 @@ xpid=$!
 i=0
 while [ ! -s "$work/display" ]; do
     i=$((i+1)); [ "$i" -lt 50 ] || exit 1
+    kill -0 "$xpid"
     sleep .1
 done
 export DISPLAY=:$(cat "$work/display")
 export HOME="$work" XENVIRONMENT="$work/empty" LC_ALL=C.UTF-8
 : >"$XENVIRONMENT"
 unset SESSION_MANAGER
+"$render_probe" layout
 "$probe" fixture "$HOME"
 "$tool" --migrate
+timeout 20 dbus-run-session -- "$ui_probe"
 # A new login reconstructs RESOURCE_MANAGER from .Xresources, including cpp.
 xrdb -remove
 xrdb -merge "$HOME/.Xresources"
@@ -39,6 +44,14 @@ wait_image() {
         sleep .1
     done
     cat "$work/pixel.log"
+}
+wait_render() {
+    i=0
+    until "$render_probe" pixel "$1" >"$work/render-pixel.log" 2>&1; do
+        i=$((i+1)); [ "$i" -lt 50 ] || return 1
+        kill -0 "$wmpid"
+        sleep .1
+    done
 }
 for pass in 1 2 3; do
     # Pass 2 restarts only the WM; pass 3 simulates another login.
@@ -66,5 +79,30 @@ for pass in 1 2 3; do
         sleep .1
     done
 done
+for mode in fit zoom stretch center tile monitors; do
+    "$EMWM_BINARY" >"$work/wm-$mode.log" 2>&1 &
+    wmpid=$!
+    wait_image
+    argument=$("$render_probe" fixture "$HOME" "$mode")
+    xrdb -merge -nocpp "$HOME/.config/emwm/backdrops.resources"
+    tellmwm backdrop ws0 "$argument"
+    wait_render "$mode"
+    kill -KILL "$wmpid"
+    wait "$wmpid" 2>/dev/null || :
+    wmpid=
+    # Reconstruct resources as at login and check the same composed pixels.
+    xrdb -remove
+    xrdb -merge "$HOME/.Xresources"
+    "$EMWM_BINARY" >>"$work/wm-$mode.log" 2>&1 &
+    wmpid=$!
+    wait_render "$mode"
+    kill -KILL "$wmpid"
+    wait "$wmpid" 2>/dev/null || :
+    wmpid=
+    # Restore the legacy fixture for the next immediate-application check.
+    rm "$HOME/.config/emwm/backdrops.resources"
+    "$tool" --migrate
+done
 if grep -i 'Unable to get image' "$work"/wm-*.log; then exit 1; fi
 echo 'PASS: immediate IPC, WM restart and fresh login; spaces, quotes, backslash and UTF-8 paths'
+echo 'PASS: fit, zoom, stretch, center, tile and multi-monitor pixels after IPC and fresh login'

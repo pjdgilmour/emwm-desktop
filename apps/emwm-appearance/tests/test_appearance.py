@@ -8,7 +8,7 @@ import tempfile
 import unittest
 from unittest.mock import patch
 sys.path.insert(0,str(Path(__file__).resolve().parents[1]))
-from core import Settings,edit_ini,atomic_write,detect_login
+from core import Settings,COLOR_FIELDS,palette_colors,edit_ini,atomic_write,detect_login
 from login_helper import apply_login
 
 class AppearanceTests(unittest.TestCase):
@@ -106,6 +106,37 @@ class AppearanceTests(unittest.TestCase):
         self.assertIn('Xcursor.size: 40',after)
         for line in before.splitlines():
             if not line.startswith('Xcursor.'): self.assertIn(line,after)
+
+    def test_custom_colors_roundtrip_keep_and_preserve_other_resources(self):
+        resource=self.home/'.Xresources'
+        resource.write_text('! Emwm*client*background: ignored\nEmwm*client*background: navy\nXTerm*faceSize: 14\n')
+        self.assertEqual(self.settings.motif_colors()['Emwm*client*background'],'navy')
+        colors=palette_colors('classic')
+        colors['Emwm*client*activeBackground']='#A1B2C3'
+        values=dict(self.values,palette='custom',colors=colors)
+        backup=self.settings.apply(values)
+        self.assertTrue((backup/'manifest.txt').is_file())
+        expected=dict(colors,**{'Emwm*client*activeBackground':'#a1b2c3'})
+        self.assertEqual(self.settings.current()['colors'],expected)
+        self.assertEqual(self.settings.motif_colors(),expected)
+        self.assertIn('XTerm*faceSize: 14',resource.read_text())
+        self.assertIn('Emwm*client*background: navy',resource.read_text())
+        self.settings.apply(dict(values,palette='keep'))
+        self.assertEqual(self.settings.motif_colors(),expected)
+        self.settings.apply(dict(self.values,palette='irix'))
+        self.assertEqual(self.settings.motif_colors(),palette_colors('irix'))
+
+    def test_custom_colors_validation_before_writing(self):
+        for colors in (None,{},dict(palette_colors('irix'),unexpected='#000000'),
+                       dict(palette_colors('irix'),**{'*background':'#123456\nEmwm*workspaceCount: 1'})):
+            with self.assertRaises(ValueError):
+                self.settings.apply(dict(self.values,palette='custom',colors=colors))
+            self.assertFalse(self.settings.directory.exists())
+
+    def test_motif_color_includes_order_and_cycles(self):
+        (self.home/'colors').write_text('Emwm*icon*activeBackground: #112233\n#include ".Xresources"\n')
+        (self.home/'.Xresources').write_text('#include "colors"\nEmwm*icon*activeBackground: #445566\n')
+        self.assertEqual(self.settings.motif_colors()['Emwm*icon*activeBackground'],'#445566')
 
     def test_atomic_write_preserves_symlink_and_mode(self):
         target=self.root/'actual'; target.write_text('old'); target.chmod(0o640)

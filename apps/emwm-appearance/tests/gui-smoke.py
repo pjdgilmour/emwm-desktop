@@ -8,7 +8,7 @@ import traceback
 sys.path.insert(0,str(Path(__file__).resolve().parents[1]))
 import gi
 gi.require_version('Gtk','3.0')
-from gi.repository import Gtk,GLib
+from gi.repository import Gtk,GLib,Gdk
 from core import Settings
 import gui
 settings=Settings()
@@ -25,6 +25,15 @@ def check():
         saved=settings.current()
         assert saved['theme']==theme,saved
         assert saved['size']==32,saved
+        assert saved['palette']=='custom',saved
+        assert saved['colors']['Emwm*client*activeBackground']=='#123456',saved
+        resources=subprocess.check_output(['xrdb','-query'],text=True)
+        assert 'Emwm*client*activeBackground:\t#123456' in resources,resources
+        win=next(w for w in Gtk.Window.list_toplevels() if w.get_title()=='Aparência do EMWM')
+        color=Gdk.RGBA(); color.parse('#abcdef')
+        win.color_buttons['Emwm*client*activeBackground'].set_rgba(color)
+        win.reset.clicked()
+        assert win.values()['colors']['Emwm*client*activeBackground']=='#123456'
         assert 'backdrops.resources' in (settings.home/'.Xresources').read_text()
         probe='''import gi; gi.require_version("Gtk","3.0"); from gi.repository import Gtk; Gtk.init([]); s=Gtk.Settings.get_default(); print(s.get_property("gtk-theme-name"),s.get_property("gtk-icon-theme-name"),s.get_property("gtk-cursor-theme-name"),s.get_property("gtk-cursor-theme-size"))'''
         env=dict(os.environ); env.pop('GTK_THEME',None)
@@ -62,6 +71,11 @@ def apply():
         win.combos['icons'].set_active_id('Adwaita')
         win.combos['cursor'].set_active_id('Adwaita')
         win.size.set_value(32)
+        win.palette.set_active_id('classic')
+        color=Gdk.RGBA(); color.parse('#123456')
+        button=win.color_buttons['Emwm*client*activeBackground']
+        button.set_rgba(color); button.emit('color-set')
+        assert win.palette.get_active_id()=='custom'
         assert not (settings.directory/'selection.json').exists(), 'preview must not save'
         win.apply.clicked()
         GLib.timeout_add(600,check)

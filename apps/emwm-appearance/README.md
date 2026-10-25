@@ -13,7 +13,7 @@ sudo ./apps/emwm-appearance/install-system.sh
 emwm-appearance
 ```
 
-O script instala `python3-gi`, `python3-pil`, `gir1.2-gtk-3.0`, `xsettingsd`, `pkexec` e
+O script instala `python3-gi`, `python3-gi-cairo`, `python3-pil`, `gir1.2-gtk-3.0`, `xsettingsd`, `pkexec` e
 `x11-xserver-utils`, os arquivos da ferramenta e seu auxiliar administrativo.
 A ferramenta também integra o pacote construído pelo instalador do desktop.
 
@@ -125,7 +125,20 @@ estilo próprio podem ignorar a seleção. A ferramenta não injeta CSS global.
 
 A paleta **Manter as cores atuais** deixa os recursos Motif pessoais em vigor;
 **IRIX clássico** e **Motif cinza** oferecem cores opcionais sem mudar o desenho
-das molduras. Não é feita conversão automática de CSS GTK para Motif.
+das molduras. **Cores personalizadas** permite editar o fundo e texto Motif,
+a decoração das janelas ativas e inativas e a seleção de ícones. Os três
+seletores de decoração usam como base os recursos de
+[`trocacor.cpp`](../Troca_cor/trocacor.cpp), integrados à aplicação em Python/GTK.
+
+Clique nas amostras para escolher as cores (ou informar o código hexadecimal
+no seletor). Uma prévia esquemática mostra as cores das janelas; alterar uma
+amostra seleciona automaticamente a paleta personalizada. As cores existentes
+são lidas de `.Xdefaults`, `.Xresources` e suas inclusões locais. **Aplicar**
+salva a paleta com backup e atualiza os recursos X; **Recarregar** descarta
+alterações ainda não aplicadas. As decorações reais são atualizadas ao reiniciar
+o EMWM, e aplicativos Motif abertos precisam ser reabertos. As cores
+personalizadas não são aplicadas ao greeter nem aos temas GTK/Qt.
+Não é feita conversão automática de CSS GTK para Motif.
 
 ## Desenvolvimento e testes
 
