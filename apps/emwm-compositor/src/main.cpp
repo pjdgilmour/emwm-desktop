@@ -88,11 +88,13 @@ struct Animation {
 };
 struct Surface {
     Window id=0,client=0;
+    Window above=0;
     XWindowAttributes attr{};
     Damage damage=0;
     ImagePtr image;
     Animation animation;
     bool mapped=false,desktop=false,managed=false,shadow=false,dirty=true,shaped=false;
+    bool metadataDirty=false,shapeDirty=false,aboveKnown=false;
     double opacity=1,appeared=0;
     std::vector<XRectangle> shape;
     Rect geometry() const { return {double(attr.x),double(attr.y),double(attr.width+2*attr.border_width),double(attr.height+2*attr.border_width)}; }
@@ -166,7 +168,11 @@ class Compositor {
         beginTrap(d);
         try { s.image=renderer->capture(s.id,s.attr); }
         catch(...) { endTrap(d);throw; }
-        if(!endTrap(d)) { s.image.reset();return false; }
+        if(!endTrap(d)) {
+            // A window can disappear between NameWindowPixmap and GLX import.
+            // Destroying the failed import can itself raise GLXBadPixmap.
+            beginTrap(d);s.image.reset();endTrap(d);return false;
+        }
         s.dirty=false;return true;
     }
     void stack() {
@@ -217,6 +223,7 @@ class Compositor {
         if(settings.effect==Effect::Disabled || e.format!=32) return;
         auto it=surfaces.find(e.data.l[0]);if(it==surfaces.end()) return;
         auto &s=it->second;int kind=e.data.l[1],phase=e.data.l[3];
+        if(s.metadataDirty) { identify(s);s.metadataDirty=false; }
         if(!s.managed || s.desktop || kind<1 || kind>4) return;
         auto icon=iconGeometry(e.data.l[2],s.geometry());
         if(phase==0) {
@@ -240,12 +247,14 @@ class Compositor {
         if(e.type==damageEvent+XDamageNotify) {
             auto ev=reinterpret_cast<XDamageNotifyEvent*>(&e);
             auto it=surfaces.find(ev->drawable);
-            if(it!=surfaces.end()) { XDamageSubtract(d,it->second.damage,None,None);it->second.dirty=true;dirty=true; }
+            // NonEmpty damage already coalesces drawing until acknowledged.
+            // Rearm it once per painted surface, not after every notification.
+            if(it!=surfaces.end()) { it->second.dirty=true;dirty=true; }
             return;
         }
         if(e.type==shapeEvent+ShapeNotify) {
             auto ev=reinterpret_cast<XShapeEvent*>(&e);auto it=surfaces.find(ev->window);
-            if(it!=surfaces.end()) { updateShape(it->second);identify(it->second);dirty=true; }return;
+            if(it!=surfaces.end()) { it->second.shapeDirty=it->second.metadataDirty=true;dirty=true; }return;
         }
         if(e.type==randrEvent+RRScreenChangeNotify) {
             XRRUpdateConfiguration(&e);renderer->resize(DisplayWidth(d,screen),DisplayHeight(d,screen));
@@ -262,6 +271,7 @@ class Compositor {
             if(it==surfaces.end()) break;
             auto &s=it->second;s.mapped=true;s.image.reset();s.dirty=true;
             XGetWindowAttributes(d,s.id,&s.attr);updateShape(s);identify(s);
+            s.shapeDirty=s.metadataDirty=false;
             if(s.managed && !s.desktop && !s.animation.kind) s.appeared=now();
             stackDirty=dirty=true;break;
         }
@@ -281,18 +291,23 @@ class Compositor {
             auto &s=it->second;auto &a=s.attr;
             if(a.width!=e.xconfigure.width || a.height!=e.xconfigure.height || a.border_width!=e.xconfigure.border_width) {
                 s.image.reset();s.dirty=true;
+                s.shapeDirty=s.metadataDirty=true;
             }
             a.x=e.xconfigure.x;a.y=e.xconfigure.y;a.width=e.xconfigure.width;
             a.height=e.xconfigure.height;a.border_width=e.xconfigure.border_width;
-            updateShape(s);identify(s);stackDirty=dirty=true;break;
+            // Moving does not change visual/type/opacity/Shape. Coalesce resize
+            // metadata queries until paint, and only query stacking on a change.
+            if(!s.aboveKnown || s.above!=e.xconfigure.above) stackDirty=true;
+            s.above=e.xconfigure.above;s.aboveKnown=true;dirty=true;break;
         }
         case CirculateNotify: stackDirty=dirty=true;break;
         case PropertyNotify:
             if(e.xproperty.window==root) {
-                if(e.xproperty.atom==atom("_NET_CURRENT_DESKTOP")) cancelAnimations();
-                dirty=true;
+                if(e.xproperty.atom==atom("_NET_CURRENT_DESKTOP")) { cancelAnimations();dirty=true; }
             } else {
-                for(auto &[id,s]:surfaces) if(id==e.xproperty.window || s.client==e.xproperty.window) { identify(s);dirty=true; }
+                if(e.xproperty.atom!=atom("_EMWM_FRAME_CLIENT") && e.xproperty.atom!=atom("_NET_WM_WINDOW_TYPE") &&
+                   e.xproperty.atom!=atom("_NET_WM_WINDOW_OPACITY") && e.xproperty.atom!=atom("_NET_WM_STATE")) break;
+                for(auto &[id,s]:surfaces) if(id==e.xproperty.window || s.client==e.xproperty.window) { s.metadataDirty=true;dirty=true; }
             }
             break;
         case ClientMessage: if(e.xclient.message_type==atom("_EMWM_ANIMATION")) animate(e.xclient);break;
@@ -307,7 +322,10 @@ class Compositor {
             auto &s=surfaces.at(id);auto &anim=s.animation;
             if(anim.kind && (t-anim.start)*1000>settings.duration+100) anim={};
             if(!s.mapped && !anim.kind) continue;
+            if(s.shapeDirty) { updateShape(s);s.shapeDirty=false; }
+            if(s.metadataDirty) { identify(s);s.metadataDirty=false; }
             if(s.mapped) {
+                if(s.dirty) XDamageSubtract(d,s.damage,None,None);
                 capture(s);
                 if(s.dirty && s.image) { renderer->refresh(s.image);s.dirty=false; }
             }
@@ -328,8 +346,13 @@ class Compositor {
                 if(p<1) { alpha*=ease(p);active=true; } else s.appeared=0;
             }
             if(!image) continue;
-            if(settings.shadows && s.shadow) renderer->shadowAt(rect,settings.shadowOpacity*alpha,settings.radius,settings.offset);
-            renderer->draw(image,rect,alpha,s.shaped?&s.shape:nullptr);
+            bool transformed=anim.kind && !anim.pending &&
+                (settings.effect==Effect::Twist || settings.effect==Effect::Flip);
+            // Do not leave an upright rectangular shadow behind a turning image.
+            if(settings.shadows && s.shadow && !transformed)
+                renderer->shadowAt(rect,settings.shadowOpacity*alpha,settings.radius,settings.offset);
+            if(transformed) renderer->drawTransformed(image,outline(rect,settings.effect,progress),alpha,s.shaped?&s.shape:nullptr);
+            else renderer->draw(image,rect,alpha,s.shaped?&s.shape:nullptr);
             if(anim.kind && !anim.pending) {
                 int count=settings.effect==Effect::Zoom?3:1;
                 for(int i=0;i<count;i++) {
@@ -402,7 +425,9 @@ public:
                     std::cerr << "emwm-compositor: " << error.what() << "; switching to XRender\n";
                     configureRenderer(true);active=false;
                 }
-                lastPaint=now();
+                // A blocking VSync swap already consumes frame time; do not
+                // add another whole frame interval after it completes.
+                lastPaint=t;
             }
             int timeout=dirty||active?std::max(1,int((interval-(now()-lastPaint))*1000)):500;
             if(!XPending(d)) { pollfd p{ConnectionNumber(d),POLLIN,0};poll(&p,1,timeout); }

@@ -6,6 +6,7 @@
 #include <GL/glx.h>
 #include <GL/glxext.h>
 #include <memory>
+#include <map>
 #include <string>
 #include <vector>
 
@@ -36,6 +37,7 @@ class Renderer {
     Pixmap buffer=0;
     Picture target=0, destination=0;
     ImagePtr shadow;
+    std::map<std::pair<VisualID,int>,std::pair<GLXFBConfig,bool>> pixmapConfigs;
     bool initGL(bool vsync);
     GLXFBConfig pixmapConfig(Visual *visual, int depth, bool &inverted);
 public:
@@ -51,6 +53,8 @@ public:
     void begin();
     void draw(const ImagePtr &image, Rect dest, double opacity=1,
               const std::vector<XRectangle> *shape=nullptr);
+    void drawTransformed(const ImagePtr &image, const Quad &dest, double opacity=1,
+                         const std::vector<XRectangle> *shape=nullptr);
     void shadowAt(Rect r, double opacity, int radius, int offset);
     void line(const Quad &q, double opacity);
     void present();

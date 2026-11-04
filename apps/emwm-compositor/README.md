@@ -16,9 +16,11 @@ XComposite, XDamage, XFixes, XRender, Shape, RandR e OpenGL/GLX.
   janelas override-redirect e preservação das decorações Motif opacas.
 - Sombra gaussiana gerada uma vez e desenhada em nove partes, com controles
   de raio, deslocamento e intensidade. Desktop/backdrops não recebem sombra.
-- Animações de minimizar/restaurar/maximizar/desmaximizar, com imagem escalada
-  e contornos Zoom, Twist e Flip adaptados do Window Maker. O giro/dobra afeta
-  os contornos; o conteúdo mantém sua orientação, com zoom e transparência.
+- Animações de minimizar/restaurar/maximizar/desmaximizar: Zoom escala a imagem,
+  Twist gira o conteúdo da janela e Flip o achata e inverte verticalmente durante
+  a transição. Os contornos acompanham a mesma geometria, inspirada no Window
+  Maker. OpenGL e XRender aplicam os efeitos também aos pixels e ao recorte Shape.
+  Sombras retangulares ficam ocultas durante Twist/Flip, voltando ao término.
 - Aparecimento gradual, recarga de preferências, troca de backend em execução,
   controle de quadros, sincronização vertical GLX quando disponível.
 - Exclusividade por seleção X11, liberação dos recursos ao encerrar e sessão
@@ -53,6 +55,14 @@ extensões GLX/driver e não é oferecido no backend XRender. Isso não equivale
 garantia de ausência de tearing, especialmente com taxas diferentes por monitor.
 Não se reivindica paridade de desempenho ou compatibilidade com picom.
 
+Movimentos simples reaproveitam os metadados e o recorte da janela. Consultas
+de Shape/estado após redimensionamentos são agrupadas antes de pintar; propriedades
+que não afetam a composição não forçam novas consultas nem repinturas. O FBConfig
+de importação GLX é guardado por visual/profundidade durante a vida do renderizador.
+XDamage é confirmado uma vez por superfície pintada, agrupando desenhos entre
+quadros. O limitador de FPS conta desde o início do quadro, sem somar outro
+intervalo inteiro ao tempo já gasto esperando VSync.
+
 ## Preferências
 
 Use a aba **Efeitos e renderização** da ferramenta de aparência.
@@ -68,6 +78,8 @@ continuar alternando o backend pela interface.
 cmake -S apps/emwm-compositor -B build/compositor -DCMAKE_BUILD_TYPE=Release
 cmake --build build/compositor -j4
 ctest --test-dir build/compositor --output-on-failure
+xvfb-run -a build/compositor/test-render-effects glx
+xvfb-run -a build/compositor/test-render-effects xrender
 python3 tests/native-desktop.py --wm /caminho/do/emwm-com-patch \
     --compositor build/compositor/emwm-compositor
 ```

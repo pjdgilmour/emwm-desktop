@@ -13,6 +13,7 @@ import subprocess
 import sys
 import tarfile
 import tempfile
+import urllib.request
 
 ROOT = Path(__file__).resolve().parent.parent
 PREFIX = '/usr/lib/emwm-desktop'
@@ -22,6 +23,7 @@ BUILD_DEPS = [
     'dpkg-dev', 'libmotif-dev', 'libx11-dev', 'libxt-dev', 'libxext-dev',
     'libxrender-dev', 'libxrandr-dev', 'libxinerama-dev', 'libxss-dev',
     'libxcomposite-dev', 'libxdamage-dev', 'libxfixes-dev', 'libgl-dev',
+    'autoconf', 'automake', 'libtool', 'intltool', 'libfm-gtk3-dev',
     'libcrypt-dev', 'libgarcon-1-dev', 'libglib2.0-dev', 'libgtkmm-3.0-dev',
 ]
 TEST_DEPS = ['xvfb', 'x11-xserver-utils', 'x11-utils', 'libxtst-dev',
@@ -83,6 +85,23 @@ def copy(src, dest, mode=0o644):
     dest.chmod(mode)
 
 
+def archive_snapshot(name, spec, work, cache):
+    archive = cache / spec['archive']
+    if not archive.exists():
+        with urllib.request.urlopen(spec['url'], timeout=60) as response:
+            data = response.read()
+        if hashlib.sha256(data).hexdigest() != spec['sha256']:
+            raise RuntimeError(f'Checksum inválido para {name}')
+        archive.write_bytes(data)
+    if hashlib.sha256(archive.read_bytes()).hexdigest() != spec['sha256']:
+        raise RuntimeError(f'Checksum inválido para {archive}')
+    with tarfile.open(archive) as stream:
+        stream.extractall(work, filter='data')
+    source = work / spec['directory']
+    source.rename(work / name)
+    return work / name
+
+
 def apply_patches(name, source):
     for patch in sorted((ROOT / 'patches' / name).glob('*.patch')):
         run(['patch', '--batch', '--forward', '--fuzz=0', '-p1', '-i', patch], cwd=source)
@@ -102,13 +121,15 @@ def build(args):
         work = Path(temp)
         wm = source_snapshot('emwm', specs['emwm'], work, cache, args.sources)
         utils = source_snapshot('emwm-utils', specs['emwm-utils'], work, cache, args.sources)
-        for name, source in [('emwm', wm), ('emwm-utils', utils)]:
+        pcmanfm = archive_snapshot('pcmanfm', specs['pcmanfm'], work, cache)
+        for name, source in [('emwm', wm), ('emwm-utils', utils), ('pcmanfm', pcmanfm)]:
             apply_patches(name, source)
         # Archive the exact patched sources before any generated files or binaries.
         source_tar = work / 'sources.tar.xz'
         with tarfile.open(source_tar, 'w:xz') as archive:
             archive.add(wm, arcname='emwm')
             archive.add(utils, arcname='emwm-utils')
+            archive.add(pcmanfm, arcname='pcmanfm')
             for item in ['apps', 'third_party', 'scripts', 'session', 'config', 'packaging',
                          'patches', 'tests', 'install.sh', 'VERSION', 'sources.lock.json',
                          'README.md', 'THIRD_PARTY.md', 'LICENSE']:
@@ -123,6 +144,11 @@ def build(args):
         # CPPFLAGS applies to the existing xmsm compilation rules.
         run(['make', '-C', 'src', '-j' + str(args.jobs), *variables,
              'CPPFLAGS=-DSUSPEND_CMD=\'"/usr/bin/systemctl suspend"\''], cwd=utils)
+        run(['sh', 'autogen.sh'], cwd=pcmanfm)
+        # Reuse the distribution's PCManFM data/translations; only the patched
+        # executable is private to EMWM. Other desktops keep /usr/bin/pcmanfm.
+        run(['./configure', '--prefix=/usr', '--with-gtk=3'], cwd=pcmanfm)
+        run(['make', '-C', 'src', '-j' + str(args.jobs)], cwd=pcmanfm)
         tell = work / 'tellmwm'
         shutil.copytree(ROOT / 'third_party/tellmwm', tell)
         run(['make', '-j' + str(args.jobs)], cwd=tell)
@@ -139,11 +165,17 @@ def build(args):
         run([sys.executable, '-m', 'unittest', 'discover', '-s',
              ROOT / 'apps/emwm-desktop-icons/tests', '-v'])
         if args.test:
+            for backend in ['xrender', 'glx']:
+                run(['xvfb-run', '-a', compositor / 'test-render-effects', backend])
             run(['make', 'test'], cwd=wm)
             run(['make', 'test-argb'], cwd=wm,
                 env=dict(os.environ, EMWM_COMPOSITOR=str(compositor / 'emwm-compositor')))
             run([sys.executable, ROOT / 'tests/native-desktop.py',
-                 '--wm', wm / 'src/emwm', '--compositor', compositor / 'emwm-compositor'])
+                 '--wm', wm / 'src/emwm', '--compositor', compositor / 'emwm-compositor',
+                 '--file-manager', pcmanfm / 'src/pcmanfm'])
+            run([sys.executable, ROOT / 'tests/desktop-drag.py',
+                 '--wm', wm / 'src/emwm', '--compositor', compositor / 'emwm-compositor',
+                 '--file-manager', pcmanfm / 'src/pcmanfm'])
             run(['make', 'test-x11'], cwd=utils)
             run(['sh', ROOT / 'tests/run-toolchest-tray.sh', utils])
             env = dict(os.environ, EMWM_BINARY=str(wm / 'src/emwm'))
@@ -160,6 +192,7 @@ def build(args):
                 'xmsession': utils / 'src/xmsession', 'tellmwm': tell / 'tellmwm',
                 'emwm-wallpaper-tool': wallpaper / 'emwm-wallpaper-tool',
                 'emwm-compositor': compositor / 'emwm-compositor'}
+        bins['pcmanfm'] = pcmanfm / 'src/pcmanfm'
         for name, src in bins.items():
             copy(src, bin_dir / name, 0o4755 if name == 'xmsm' else 0o755)
         copy(ROOT / 'apps/emwm-desktop-icons/emwm-desktop-icons', bin_dir / 'emwm-desktop-icons', 0o755)
@@ -191,6 +224,7 @@ def build(args):
         copy(ROOT / 'LICENSE', doc / 'licenses/emwm-desktop-GPL-3')
         copy(wm / 'COPYING', doc / 'licenses/emwm-COPYING')
         copy(utils / 'COPYING', doc / 'licenses/emwm-utils-COPYING')
+        copy(pcmanfm / 'COPYING', doc / 'licenses/pcmanfm-COPYING')
         copy(ROOT / 'apps/emwm-compositor/COPYING.WindowMaker', doc / 'licenses/WindowMaker-GPL-2')
         copy(ROOT / 'apps/emwm-compositor/README.md', doc / 'compositor.md')
         copy(tell / 'COPYING', doc / 'licenses/tellmwm-COPYING')

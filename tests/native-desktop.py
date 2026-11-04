@@ -54,6 +54,8 @@ def test(args, backend, work, probe):
                    XDG_RUNTIME_DIR=str(runtime),
                    GSETTINGS_BACKEND='memory', NO_AT_BRIDGE='1', GVFS_DISABLE_FUSE='1')
         env.pop('SESSION_MANAGER', None)
+        if args.file_manager:
+            env['PATH'] = str(args.file_manager.resolve().parent) + os.pathsep + env['PATH']
         subprocess.run(['dbus-update-activation-environment', 'HOME', 'DISPLAY', 'XDG_CONFIG_HOME',
                         'XDG_STATE_HOME', 'XDG_DATA_HOME', 'XDG_RUNTIME_DIR', 'GVFS_DISABLE_FUSE'], env=env, check=True)
         launch(['/usr/libexec/gvfsd', '--no-fuse'], env)
@@ -159,6 +161,7 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--wm', required=True, type=Path)
     parser.add_argument('--compositor', required=True, type=Path)
+    parser.add_argument('--file-manager', type=Path)
     parser.add_argument('--capture', type=Path)
     parser.add_argument('--private-bus', action='store_true')
     parser.add_argument('--backend', choices=('xrender', 'glx'))

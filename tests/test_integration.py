@@ -122,7 +122,7 @@ class PackageTests(unittest.TestCase):
                   'usr/share/emwm-desktop/app-defaults/Emwm','usr/share/emwm-desktop/app-defaults/XmSm',
                   'usr/share/emwm-desktop/emwm-applications.menu']
         for name in ['emwm','xmsm','xmtoolbox','xmtray','tellmwm','emwm-wallpaper-tool',
-                     'emwm-compositor','emwm-desktop-icons','emwm-appearance']:
+                     'emwm-compositor','emwm-desktop-icons','emwm-appearance','pcmanfm']:
             required.append('usr/lib/emwm-desktop/bin/'+name)
         for path in required:
             self.assertIn(path,self.files)
@@ -151,6 +151,7 @@ class PackageTests(unittest.TestCase):
         with tarfile.open(fileobj=io.BytesIO(self.read(doc+'sources.tar.xz'))) as sources:
             names=set(sources.getnames())
             for path in ['emwm/COPYING','emwm-utils/COPYING','emwm/src/WmArgb.c',
+                         'pcmanfm/COPYING','pcmanfm/src/desktop.c',
                          'emwm-utils/src/tray.c','emwm-utils/src/tray.h',
                          'emwm-desktop/patches/emwm-utils/0001-toolchest-tray.patch',
                          'emwm-desktop/scripts/install.py',
@@ -159,6 +160,7 @@ class PackageTests(unittest.TestCase):
                 self.assertIn(path,names)
             self.assertFalse(any('/.git/' in p or p.endswith('.o') for p in names))
             self.assertIn(b'TrayStart();', sources.extractfile('emwm-utils/src/tbmain.c').read())
+            self.assertIn(b'widget_class->drag_end = on_drag_end;', sources.extractfile('pcmanfm/src/desktop.c').read())
         deps=subprocess.check_output(['dpkg-deb','-f',str(self.package),'Depends'],text=True)
         self.assertNotIn('picom', deps)
         for package in ['libxm4','libgtkmm-3.0','libgl1','libxdamage1','gvfs','gnome-keyring']:

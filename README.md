@@ -25,8 +25,8 @@ cd emwm-desktop
 ./install.sh --test
 ```
 
-O instalador instala as dependências de compilação usando apt, obtém os commits
-fixados em `sources.lock.json`, compila como usuário normal, executa os testes e
+O instalador instala as dependências de compilação usando apt, obtém os fontes
+fixados em `sources.lock.json` (commits e arquivos com SHA-256), compila como usuário normal, executa os testes e
 gera um pacote `.deb`. Por fim, instala o pacote com apt, que resolve também as
 dependências de execução. `--yes` aceita as confirmações do apt; omita para revisar.
 Sem `--test`, mantém os testes básicos da ferramenta de fundos, mas não executa
@@ -96,8 +96,10 @@ no log da sessão. Vulkan e Wayland não fazem parte desta versão.
 
 Na ferramenta de aparência é possível selecionar:
 
-- **Zoom**, **Twist** ou **Flip**, inspirados nos contornos do Window Maker,
-  para minimizar, restaurar, maximizar e desfazer a maximização.
+- **Zoom** (escala), **Twist** (giro do conteúdo) ou **Flip** (achatamento e
+  inversão vertical), inspirados no Window Maker, para minimizar, restaurar,
+  maximizar e desfazer a maximização. Os efeitos transformam a imagem da janela
+  em OpenGL e XRender, além dos contornos.
 - Duração das animações e do aparecimento gradual das janelas.
 - Sombras suaves, intensidade, raio e deslocamento.
 - Backend, sincronização vertical OpenGL e limite de quadros por segundo.
@@ -128,6 +130,11 @@ O `emwm-desktop-icons` inicia o gerenciador de desktop do PCManFM com o perfil
 pastas localizadas, e oferece seleção, arrastar e soltar, copiar, mover, renomear,
 abrir arquivos e organizar ícones. O ícone de lixeira usa GVfs e o padrão
 freedesktop, com abertura, restauração e esvaziamento pelo PCManFM.
+
+O pacote inclui um executável privado do PCManFM 1.4.0 com correção de `drag-end`:
+ao soltar ou cancelar um arrasto, o ícone volta a ser desenhado imediatamente,
+sem depender de outro clique. A instalação global `/usr/bin/pcmanfm` é mantida;
+o componente privado utiliza as bibliotecas, traduções e dados do Debian.
 
 O EMWM trata essas superfícies sem molduras, abaixo das aplicações e presentes
 em todos os workspaces. Os arquivos são compartilhados entre os workspaces;
@@ -200,6 +207,8 @@ Para desenvolver antes de publicar os commits dos forks:
 Esse diretório deve conter `emwm/` e `emwm-utils/`. São extraídos os **commits
 fixados**, sem copiar artefatos de compilação ou alterações ainda não commitadas.
 Depois de modificar um fork, atualize `sources.lock.json` com o novo SHA completo.
+O fonte do PCManFM é obtido separadamente do arquivo Debian fixado por SHA-256
+no mesmo manifesto e armazenado em `build/cache/`, inclusive com `--sources`.
 Os patches em `patches/<componente>/` são aplicados em ordem sobre esses commits
 antes da compilação. A integração da bandeja ao Toolchest está nesse diretório;
 o pacote inclui tanto os patches quanto os fontes já modificados.

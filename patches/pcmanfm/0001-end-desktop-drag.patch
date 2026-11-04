@@ -1,0 +1,33 @@
+--- a/src/desktop.c
++++ b/src/desktop.c
+@@ -4638,6 +4638,22 @@
+     queue_layout_items(desktop);
+ }
+ 
++/* GTK owns the pointer grab during DnD, so the source widget is not
++ * guaranteed to receive button-release. End the hidden-item state on the
++ * DnD lifecycle signal instead, including cancelled/out-of-desktop drags. */
++static void on_drag_end(GtkWidget *widget, GdkDragContext *context)
++{
++    FmDesktop *desktop = FM_DESKTOP(widget);
++    GtkWidgetClass *parent = GTK_WIDGET_CLASS(fm_desktop_parent_class);
++    if (parent->drag_end)
++        parent->drag_end(widget, context);
++    if (desktop->dragging)
++    {
++        desktop->dragging = FALSE;
++        queue_layout_items(desktop);
++    }
++}
++
+ static void on_dnd_src_data_get(FmDndSrc* ds, FmDesktop* desktop)
+ {
+     FmFileInfoList* files = _dup_selected_files(FM_FOLDER_VIEW(desktop));
+@@ -5076,6 +5092,7 @@
+     widget_class->drag_drop = on_drag_drop;
+     widget_class->drag_data_received = on_drag_data_received;
+     widget_class->drag_leave = on_drag_leave;
++    widget_class->drag_end = on_drag_end;
+ #if FM_CHECK_VERSION(1, 2, 1)
+     widget_class->drag_begin = on_drag_begin;
+ #endif

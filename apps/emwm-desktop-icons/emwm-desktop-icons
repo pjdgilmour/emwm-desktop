@@ -124,7 +124,9 @@ def main():
     desktop = output(['xdg-user-dir', 'DESKTOP']).strip()
     if desktop and Path(desktop) != home:
         Path(desktop).mkdir(parents=True, exist_ok=True)
-    child = subprocess.Popen(['pcmanfm', '--profile=emwm-desktop', '--desktop'])
+    bundled = Path(__file__).resolve().with_name('pcmanfm')
+    file_manager = str(bundled) if bundled.is_file() else 'pcmanfm'
+    child = subprocess.Popen([file_manager, '--profile=emwm-desktop', '--desktop'])
     watcher = None
     stopped = False
 
@@ -190,7 +192,7 @@ def main():
                 # Include mtime: regenerated images may keep the same filename.
                 current = (wallpaper, Path(wallpaper).stat().st_mtime_ns if wallpaper else None)
                 if current != last_wallpaper:
-                    args = ['pcmanfm', '--profile=emwm-desktop']
+                    args = [file_manager, '--profile=emwm-desktop']
                     args += ['--set-wallpaper', wallpaper, '--wallpaper-mode=screen'] if wallpaper else ['--wallpaper-mode=color']
                     subprocess.run(args, check=True, timeout=5)
                     last_wallpaper = current

@@ -78,6 +78,9 @@ bool Renderer::initGL(bool vsync) {
 }
 
 GLXFBConfig Renderer::pixmapConfig(Visual *visual,int depth,bool &inverted) {
+    auto key=std::make_pair(XVisualIDFromVisual(visual),depth);
+    auto cached=pixmapConfigs.find(key);
+    if(cached!=pixmapConfigs.end()) { inverted=cached->second.second;return cached->second.first; }
     int n=0;auto configs=glXGetFBConfigs(dpy,screen,&n);
     GLXFBConfig found=nullptr;
     for (int i=0;i<n;i++) {
@@ -99,6 +102,7 @@ GLXFBConfig Renderer::pixmapConfig(Visual *visual,int depth,bool &inverted) {
         inverted=inv;found=configs[i];break;
     }
     if (configs) XFree(configs);
+    pixmapConfigs.emplace(key,std::make_pair(found,inverted));
     return found;
 }
 
@@ -252,6 +256,68 @@ void Renderer::draw(const ImagePtr &im,Rect r,double opacity,const std::vector<X
             std::lround(r.x),std::lround(r.y),std::ceil(r.w),std::ceil(r.h));
         if (mask) XRenderFreePicture(dpy,mask);
         if (shape) { XRenderPictureAttributes pa{};pa.clip_mask=None;XRenderChangePicture(dpy,target,CPClipMask,&pa); }
+    }
+}
+
+void Renderer::drawTransformed(const ImagePtr &im,const Quad &q,double opacity,
+                               const std::vector<XRectangle> *shape) {
+    if (!im || opacity<=0) return;
+    Point a{q[1].x-q[0].x,q[1].y-q[0].y},b{q[3].x-q[0].x,q[3].y-q[0].y};
+    double det=a.x*b.y-a.y*b.x;
+    // A flip is momentarily edge-on. Avoid a singular inverse and fixed-point
+    // overflow in XRender; drawing nothing is the correct edge-on projection.
+    if (std::abs(det)<1. || std::abs(det)/std::max(1.,std::hypot(a.x,a.y))<.5) return;
+    opacity=std::clamp(opacity,0.,1.);
+    auto point=[&](double u,double v) { return Point{q[0].x+u*a.x+v*b.x,q[0].y+u*a.y+v*b.y}; };
+    if (gl) {
+        glEnable(GL_TEXTURE_2D);glBindTexture(GL_TEXTURE_2D,im->texture);
+        glColor4d(opacity,opacity,opacity,opacity);
+        auto vertex=[&](double u,double v) {
+            auto p=point(u,v);glTexCoord2d(u,im->inverted?v:1-v);glVertex2d(p.x,p.y);
+        };
+        auto quad=[&](double u,double v,double right,double bottom) {
+            glBegin(GL_QUADS);vertex(u,v);vertex(right,v);vertex(right,bottom);vertex(u,bottom);glEnd();
+        };
+        // Transform each Shape rectangle with its texture coordinates. Scissor
+        // rectangles would clip against the unrotated shape instead.
+        if (shape) for(auto s:*shape)
+            quad(double(s.x)/im->width,double(s.y)/im->height,
+                 double(s.x+s.width)/im->width,double(s.y+s.height)/im->height);
+        else quad(0,0,1,1);
+        glDisable(GL_TEXTURE_2D);
+    } else {
+        double left=q[0].x,top=q[0].y,right=left,bottom=top;
+        for(auto p:q) { left=std::min(left,p.x);top=std::min(top,p.y);right=std::max(right,p.x);bottom=std::max(bottom,p.y); }
+        int x=std::clamp(int(std::floor(left)),0,width),y=std::clamp(int(std::floor(top)),0,height);
+        int w=std::clamp(int(std::ceil(right)),0,width)-x,h=std::clamp(int(std::ceil(bottom)),0,height)-y;
+        if(w<=0 || h<=0) return;
+        // XRender maps destination pixels back into the source. The source
+        // origin of Composite is (0,0), corresponding to this clipped bbox.
+        double xx=im->width*b.y/det,xy=-im->width*b.x/det;
+        double yx=-im->height*a.y/det,yy=im->height*a.x/det;
+        XTransform inverse{{{XDoubleToFixed(xx),XDoubleToFixed(xy),XDoubleToFixed(xx*(x-q[0].x)+xy*(y-q[0].y))},
+                            {XDoubleToFixed(yx),XDoubleToFixed(yy),XDoubleToFixed(yx*(x-q[0].x)+yy*(y-q[0].y))},
+                            {0,0,XDoubleToFixed(1)}}};
+        XRenderSetPictureTransform(dpy,im->picture,&inverse);
+        if(shape) {
+            Region region=XCreateRegion();
+            for(auto s:*shape) {
+                double u=double(s.x)/im->width,v=double(s.y)/im->height;
+                double u1=double(s.x+s.width)/im->width,v1=double(s.y+s.height)/im->height;
+                Point corners[]={point(u,v),point(u1,v),point(u1,v1),point(u,v1)};
+                XPoint points[4];
+                for(int i=0;i<4;i++) points[i]={static_cast<short>(std::clamp(std::lround(corners[i].x),-32000L,32000L)),
+                                               static_cast<short>(std::clamp(std::lround(corners[i].y),-32000L,32000L))};
+                Region part=XPolygonRegion(points,4,WindingRule);
+                XUnionRegion(region,part,region);XDestroyRegion(part);
+            }
+            XRenderSetPictureClipRegion(dpy,target,region);XDestroyRegion(region);
+        }
+        Picture mask=None;
+        if(opacity<.9999) { XRenderColor c{0,0,0,static_cast<unsigned short>(65535*opacity)};mask=XRenderCreateSolidFill(dpy,&c); }
+        XRenderComposite(dpy,PictOpOver,im->picture,mask,target,0,0,0,0,x,y,w,h);
+        if(mask) XRenderFreePicture(dpy,mask);
+        if(shape) { XRenderPictureAttributes pa{};pa.clip_mask=None;XRenderChangePicture(dpy,target,CPClipMask,&pa); }
     }
 }
 

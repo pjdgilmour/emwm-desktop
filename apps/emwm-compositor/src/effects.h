@@ -26,8 +26,9 @@ inline Rect interpolate(Rect a, Rect b, double t) {
 inline Quad rectangle(Rect r) {
     return {{{r.x,r.y}, {r.x+r.w,r.y}, {r.x+r.w,r.y+r.h}, {r.x,r.y+r.h}}};
 }
-// The outline styles follow Window Maker's animateResizeZoom/Twist/Flip
-// (actions.c). Timing and rendering are independent and never grab the server.
+// The styles follow Window Maker's animateResizeZoom/Twist/Flip (actions.c).
+// The same parallelogram transforms both the window pixels and the outline.
+// Timing and rendering are independent and never grab the server.
 inline Quad outline(Rect r, Effect effect, double progress) {
     constexpr double pi = 3.14159265358979323846;
     auto q = rectangle(r);
@@ -40,8 +41,8 @@ inline Quad outline(Rect r, Effect effect, double progress) {
         }
     } else if (effect == Effect::Flip) {
         double dx = r.w*.1*sin(angle), h=r.h*.5*cos(angle), cy=r.y+r.h/2;
-        q = {{{r.x+dx,cy-h}, {r.x+r.w-dx,cy-h},
-              {r.x+r.w+dx,cy+h}, {r.x-dx,cy+h}}};
+        q = {{{r.x+dx,cy-h}, {r.x+r.w+dx,cy-h},
+              {r.x+r.w-dx,cy+h}, {r.x-dx,cy+h}}};
     }
     return q;
 }
