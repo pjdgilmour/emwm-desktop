@@ -1,0 +1,15 @@
+#!/bin/sh
+set -eu
+if [ "$1" = configure ]; then
+    # Retain the legacy entry outside xsessions; only the complete desktop is
+    # offered at login. dpkg-divert also handles upgrades of the old WM package.
+    legacy=/usr/share/xsessions/emwm.desktop
+    owner=$(dpkg-divert --listpackage "$legacy")
+    if [ -z "$owner" ]; then
+        mkdir -p /usr/share/emwm-desktop/legacy
+        dpkg-divert --package emwm-desktop --add --rename \
+            --divert /usr/share/emwm-desktop/legacy/emwm.desktop "$legacy"
+    elif [ "$owner" != emwm-desktop ]; then
+        echo "emwm-desktop: legacy session already diverted by $owner; leaving it unchanged" >&2
+    fi
+fi

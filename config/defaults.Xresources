@@ -8,7 +8,7 @@
 Emwm*workspaceCount: 4
 Emwm*client*background: #8c8c8c
 Emwm*client*activeBackground: #7399ba
-! Use this session's binaries even if system-wide Xt defaults select /usr/bin.
+! Use the private binaries even if system-wide Xt defaults select /usr/bin.
 XmSm.windowManager: /usr/lib/emwm-desktop/bin/emwm
 XmSm.launcher: /usr/lib/emwm-desktop/bin/xmtoolbox
 XmToolbox.systemTray: True

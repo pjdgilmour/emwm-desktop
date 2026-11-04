@@ -1,0 +1,11 @@
+#!/bin/sh
+set -eu
+case "$1" in
+    remove|purge)
+        legacy=/usr/share/xsessions/emwm.desktop
+        if [ "$(dpkg-divert --listpackage "$legacy")" = emwm-desktop ]; then
+            dpkg-divert --package emwm-desktop --remove --rename \
+                --divert /usr/share/emwm-desktop/legacy/emwm.desktop "$legacy"
+        fi
+        ;;
+esac

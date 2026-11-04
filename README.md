@@ -1,8 +1,9 @@
 # EMWM Desktop
 
 Ambiente X11 clássico baseado no **Enhanced Motif Window Manager**, com botão de
-fechar, transparência por aplicativo via picom, menus XDG automáticos no
-Toolchest, bandeja Motif `xmtray` e configuração persistente de papéis de parede.
+fechar, compositor X11 próprio com OpenGL/XRender, sombras e animações,
+desktop com arquivos e lixeira, menus XDG automáticos no Toolchest,
+bandeja Motif `xmtray` e configuração persistente de papéis de parede.
 
 Este é um projeto de integração mantido por **pjdgilmour**, baseado no trabalho
 original de **alx / fastestcode.org** e no Motif. Os componentes preservam suas
@@ -45,8 +46,13 @@ Também é possível usar `startx /usr/bin/emwm-desktop-session` a partir de um 
 - Entrada do login: `/usr/share/xsessions/emwm-desktop.desktop`.
 - Licenças e cópias dos fontes: `/usr/share/doc/emwm-desktop/`.
 
-Esses caminhos permitem coexistir com instalações anteriores do EMWM. O pacote
-não substitui `/usr/bin/emwm`, `/usr/local/bin/emwm` nem as configurações do XFCE.
+Há uma única entrada EMWM na tela de login: **EMWM Desktop**. A instalação
+desvia a entrada antiga `emwm.desktop` para
+`/usr/share/emwm-desktop/legacy/emwm.desktop` usando `dpkg-divert`; ao remover
+o pacote, a entrada antiga é restaurada. Os binários antigos `/usr/bin/emwm`
+e `/usr/local/bin/emwm` e as configurações do XFCE não são substituídos.
+O PATH da sessão prioriza também o lançador atualizado da ferramenta de aparência,
+para que uma instalação antiga em `~/.local` não oculte as opções de composição.
 Arquivos pessoais `.profile`, `.Xprofile`, `.Xresources`, `.emwmrc` e `.toolboxrc`
 permanecem intactos. A sessão respeita esses arquivos quando existem. Para testar
 os padrões em uma máquina já personalizada, use uma conta de usuário nova.
@@ -56,7 +62,9 @@ de tela e operações da sessão. Os demais componentes rodam sem esse privilég
 O comando de suspensão é compilado como `systemctl suspend` no Debian.
 
 Dependências de execução incluem Motif, garcon/GLib, GTKmm para a ferramenta de
-fundos, Xorg, picom, agente Polkit MATE, GNOME Keyring, XTerm e PCManFM.
+fundos, Xorg, bibliotecas OpenGL/GLX e de composição X11, agente Polkit MATE,
+GNOME Keyring, XTerm, PCManFM, GVfs e xdg-user-dirs. Picom e xcompmgr não são
+necessários nem iniciados por esta versão.
 NetworkManager Applet, PipeWire e pavucontrol são recomendações do pacote.
 Não inclui XFCE, AnyDesk, drivers NVIDIA, ferramentas Blackmagic ou temas de terceiros.
 
@@ -69,13 +77,74 @@ mkdir -p ~/.config/emwm-desktop
 cp -n /usr/share/emwm-desktop/session.conf ~/.config/emwm-desktop/session.conf
 ```
 
-Edite esse arquivo para desabilitar compositor, bandeja, applet de rede, chaveiro
-ou agente Polkit. O compositor usa `xrender` como padrão portátil; altere
-`EMWM_DESKTOP_PICOM_BACKEND=glx` se preferir e seu driver suportar.
+Edite esse arquivo para desabilitar compositor, ícones do desktop, bandeja,
+applet de rede, chaveiro ou agente Polkit. A renderização e os efeitos são
+selecionados em **Ambiente → Aparência → Composição, sombras e animações**.
 Nenhuma saída de monitor, rotação, teclado ou tema GTK particular é imposta.
 A sessão lê seu `.Xprofile`, depois `session.conf`, e carrega os recursos X antes
 de iniciar o WM e os utilitários. Logs ficam em
 `~/.local/state/emwm-desktop/session.log` (ou em `XDG_STATE_HOME`).
+
+### Compositor próprio e efeitos
+
+O `emwm-compositor` pertence ao projeto e roda em processo separado do WM.
+O modo **Automática** tenta OpenGL/GLX com texturas de pixmaps X11; se esse
+backend não puder ser iniciado, usa XRender. OpenGL pode utilizar a GPU com
+um driver compatível. Em servidores virtuais pode usar renderização por software;
+o nome do renderizador e a disponibilidade de sincronização vertical aparecem
+no log da sessão. Vulkan e Wayland não fazem parte desta versão.
+
+Na ferramenta de aparência é possível selecionar:
+
+- **Zoom**, **Twist** ou **Flip**, inspirados nos contornos do Window Maker,
+  para minimizar, restaurar, maximizar e desfazer a maximização.
+- Duração das animações e do aparecimento gradual das janelas.
+- Sombras suaves, intensidade, raio e deslocamento.
+- Backend, sincronização vertical OpenGL e limite de quadros por segundo.
+
+As escolhas só são gravadas ao clicar **Aplicar**. O compositor detecta as
+alterações em até um segundo, inclusive a troca do backend, sem reiniciar o WM.
+A configuração fica em `$XDG_CONFIG_HOME/emwm-desktop/compositor.conf`
+(normalmente `~/.config/emwm-desktop/compositor.conf`); há um exemplo em
+`/usr/share/emwm-desktop/compositor.conf`. Os efeitos não bloqueiam o loop de
+eventos do WM. Trocas de workspace não são tratadas como minimização.
+
+`EMWM_DESKTOP_COMPOSITOR=0` em `session.conf` desativa o componente no próximo
+login. A antiga opção `EMWM_DESKTOP_PICOM_BACKEND` não é mais usada. Caso seu
+`.Xprofile` inicie outro compositor, remova essa inicialização para usar o novo:
+o EMWM Compositor detecta um proprietário existente e não o substitui.
+
+Esta implementação oferece composição, transparência, sombras e os efeitos
+descritos; não implementa desfoque, HDR, VRR ou apresentação direta de fullscreen.
+XRender não oferece a opção de VSync do backend OpenGL. Os testes com Xvfb/Mesa
+validam o funcionamento, mas desempenho, tearing e suspensão precisam ser
+avaliados com os drivers e monitores reais. Consulte
+[os detalhes técnicos e testes](apps/emwm-compositor/README.md).
+
+### Arquivos, ícones e lixeira no desktop
+
+O `emwm-desktop-icons` inicia o gerenciador de desktop do PCManFM com o perfil
+`emwm-desktop`. Ele mostra a pasta indicada por `xdg-user-dir DESKTOP`, incluindo
+pastas localizadas, e oferece seleção, arrastar e soltar, copiar, mover, renomear,
+abrir arquivos e organizar ícones. O ícone de lixeira usa GVfs e o padrão
+freedesktop, com abertura, restauração e esvaziamento pelo PCManFM.
+
+O EMWM trata essas superfícies sem molduras, abaixo das aplicações e presentes
+em todos os workspaces. Os arquivos são compartilhados entre os workspaces;
+os ícones de aplicações minimizadas continuam pertencendo ao WM. Evite colocar
+arquivos na mesma região usada por esses ícones, ou habilite a Icon Box do EMWM.
+O menu de arquivos aparece com o botão direito; os comandos do ambiente continuam
+disponíveis no Toolchest e pelos atalhos do EMWM.
+
+Os fundos preparados pela ferramenta de papel de parede são sincronizados com
+o desktop ativo ao aplicar uma imagem e ao trocar de workspace. As preferências
+e posições dos ícones ficam em `~/.config/pcmanfm/emwm-desktop/`, respeitando
+`XDG_CONFIG_HOME`. Perfis preexistentes são preservados. Como o PCManFM mantém
+uma instância por display, deixe a sessão iniciar o desktop antes de abrir suas
+janelas de arquivos. Não o inicie também no `.Xprofile` com outro perfil.
+Use `EMWM_DESKTOP_ICONS=0` para desativar o desktop ativo no próximo login.
+
+### Fundos, bandeja e serviços
 
 Para selecionar o fundo, use **Ambiente → Papel de parede** no Toolchest. O caminho
 da imagem original é preservado para futuros ajustes. A ferramenta cria
@@ -158,6 +227,8 @@ ambientes gráficos nem troca preferências globais.
 - `config/`: padrões e exemplos genéricos.
 - `patches/`: alterações locais aplicadas aos snapshots fixados dos componentes.
 - `apps/emwm-wallpaper-tool/`: ferramenta de fundos.
+- `apps/emwm-compositor/`: compositor X11 próprio, OpenGL/XRender e efeitos.
+- `apps/emwm-desktop-icons/`: integração do desktop PCManFM, fundos e lixeira.
 - `third_party/tellmwm/`: cópia do tellmwm 1.2, com licença original.
 - `tests/`: verificações do pacote e da configuração.
 
@@ -165,11 +236,15 @@ ambientes gráficos nem troca preferências globais.
 python3 -m unittest discover -s tests -v
 ```
 
-Os testes `--test` executam os testes do WM, transparência, menus, bandeja e
+Os testes `--test` executam os testes do WM, transparência com o compositor próprio, menus, bandeja e
 persistência dos fundos em servidores Xvfb privados. Também verificam o conteúdo
 do pacote e a inicialização da sessão completa extraída do `.deb`. Não substituem o WM da
 sessão em uso. O pacote inclui `sources.tar.xz` com os fontes dos binários e os
 scripts usados na compilação, além das licenças correspondentes.
+Os testes adicionais verificam pixels de conteúdo/sombra, as três animações,
+empilhamento e presença do desktop nos workspaces, troca de backend em execução,
+exclusividade do compositor, lixeira e reinício. Usam HOME, DISPLAY e D-Bus
+privados; não substituem o compositor da sessão em uso.
 
 ## Aparência do ambiente e do login
 

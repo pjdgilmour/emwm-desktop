@@ -4,6 +4,15 @@ Seleção de tema GTK, ícones, cursor/tamanho e paleta Motif opcional. A interf
 GTK 3 usa o tema escolhido na prévia; nenhuma preferência é salva antes de
 **Aplicar**. As decorações Motif conservam seu formato e relevo.
 
+Também configura o compositor próprio: OpenGL/XRender, sombras, efeitos
+Zoom/Twist/Flip de minimizar/restaurar/maximizar, duração, aparecimento gradual,
+VSync OpenGL e limite de quadros. As escolhas ficam pendentes até **Aplicar**,
+que grava `~/.config/emwm-desktop/compositor.conf` no mesmo conjunto de backups
+e restauração em caso de erro. O compositor lê mudanças em até um segundo,
+inclusive a troca de backend. Não é necessário reiniciar o WM para esses efeitos.
+O componente gráfico precisa estar instalado pelo pacote completo; instalar
+somente a ferramenta de aparência não instala o compositor.
+
 ## Instalação independente (Debian)
 
 Na raiz do repositório emwm-desktop:

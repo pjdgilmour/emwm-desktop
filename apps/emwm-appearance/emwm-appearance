@@ -1,7 +1,6 @@
 #!/bin/sh
-case "$0" in
-    "$HOME/.local/bin/"*)
-        exec /usr/bin/python3 "$HOME/.local/share/emwm-appearance/gui.py" "$@" ;;
-    *)
-        exec /usr/bin/python3 /usr/lib/emwm-desktop/appearance/gui.py "$@" ;;
-esac
+# A previous per-user install must not mask the desktop package's current UI.
+if [ -f /usr/lib/emwm-desktop/appearance/gui.py ]; then
+    exec /usr/bin/python3 /usr/lib/emwm-desktop/appearance/gui.py "$@"
+fi
+exec /usr/bin/python3 "$HOME/.local/share/emwm-appearance/gui.py" "$@"

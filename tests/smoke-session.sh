@@ -65,7 +65,8 @@ xprop -root _NET_SUPPORTING_WM_CHECK | grep '0x'
 kill -0 "$session_pid"
 if mapped_class XmTray; then echo 'FAIL: unexpected standalone tray' >&2; exit 1; fi
 cc "$project/tests/probe-toolchest-tray.c" -o "$work/probe-tray" -lX11
-toolbox_pid=$(pgrep -P "$session_pid" -x xmtoolbox)
+xmsm_pid=$(pgrep -P "$session_pid" -x xmsm)
+toolbox_pid=$(pgrep -P "$xmsm_pid" -x xmtoolbox)
 "$work/probe-tray" "$toolbox_pid" "$work/root/usr/lib/emwm-desktop/bin/xmtoolbox"
 if [ -n "${EMWM_DESKTOP_CAPTURE:-}" ]; then import -display "$DISPLAY" -window root "$EMWM_DESKTOP_CAPTURE"; fi
 printf '%s\n' 'PASS: extracted package starts xmsm, EMWM and Toolchest with integrated tray on an isolated X server'

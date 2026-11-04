@@ -1,0 +1,211 @@
+#!/usr/bin/python3
+# SPDX-License-Identifier: GPL-3.0-only
+"""PCManFM desktop integration; all preferences use an EMWM-specific profile."""
+import fcntl
+import hashlib
+import os
+from pathlib import Path
+import re
+import selectors
+import signal
+import stat
+import subprocess
+import sys
+import time
+
+
+def resource_path(value):
+    """Decode the quoting used by emwm-wallpaper-tool, without a shell."""
+    value = value.lstrip()
+    quoted = value.startswith('"')
+    index = 1 if quoted else 0
+    result = []
+    while index < len(value):
+        char = value[index]
+        if quoted and char == '"':
+            return ''.join(result)
+        if not quoted and (char.isspace() or char == '#'):
+            break
+        if char == '\\':
+            index += 1
+            if index == len(value):
+                raise ValueError('Incomplete wallpaper escape')
+            char = value[index]
+        result.append(char)
+        index += 1
+    if quoted:
+        raise ValueError('Unterminated wallpaper path')
+    return ''.join(result)
+
+
+def wallpapers(resources):
+    result = {}
+    for line in resources.splitlines():
+        match = re.match(r'^Emwm[.*]ws(\d+)[.*]backdrop[.*]image:\s*(.*)$', line)
+        if match:
+            try:
+                result[int(match[1])] = resource_path(match[2])
+            except ValueError:
+                continue
+    return result
+
+
+def prepare_profile(config, monitors):
+    directory = config / 'pcmanfm/emwm-desktop'
+    directory.mkdir(parents=True, exist_ok=True)
+    # Never replace an existing profile or icon positions.
+    for monitor in range(max(1, monitors)):
+        path = directory / f'desktop-items-{monitor}.conf'
+        try:
+            with path.open('x') as stream:
+                stream.write('[*]\nwallpaper_mode=color\nwallpaper_common=1\n'
+                             'desktop_bg=#516286\ndesktop_fg=#ffffff\n'
+                             'desktop_shadow=#000000\ndesktop_font=Sans 10\n'
+                             'show_wm_menu=0\nshow_trash=1\nshow_documents=0\nshow_mounts=1\n')
+        except FileExistsError:
+            pass
+
+
+def output(args):
+    return subprocess.check_output(args, text=True, stderr=subprocess.DEVNULL, timeout=5)
+
+
+def active_pcmanfm_socket(runtime, display):
+    """Read Linux's socket inventory without sending an IPC command to PCManFM."""
+    host, number = display.rsplit(':', 1)
+    path = runtime / f'pcmanfm-socket-{host}-{int(number.split(".")[0])}'
+    try:
+        if not stat.S_ISSOCK(path.stat().st_mode):
+            return False
+        # A stale filesystem entry after a crash is not a listening server.
+        return any(line.split(maxsplit=7)[-1].strip() == str(path)
+                   for line in Path('/proc/net/unix').read_text().splitlines()[1:])
+    except FileNotFoundError:
+        return False
+    except PermissionError:
+        return True
+
+
+def main():
+    if not os.environ.get('DISPLAY'):
+        raise RuntimeError('EMWM desktop icons require X11.')
+    home = Path.home()
+    config = Path(os.environ.get('XDG_CONFIG_HOME', home / '.config'))
+    runtime = Path(os.environ.get('XDG_RUNTIME_DIR', os.environ.get('XDG_CACHE_HOME', home / '.cache')))
+    state = Path(os.environ.get('XDG_STATE_HOME', home / '.local/state')) / 'emwm-desktop'
+    state.mkdir(parents=True, exist_ok=True)
+    display = hashlib.sha256(os.environ['DISPLAY'].encode()).hexdigest()[:16]
+    lock = (state / f'icons-{display}.lock').open('w')
+    try:
+        fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+    except BlockingIOError:
+        return
+    if active_pcmanfm_socket(runtime, os.environ['DISPLAY']):
+        raise RuntimeError('PCManFM is already running on this display. Start the EMWM desktop before other PCManFM instances.')
+    # Wait for the WM: otherwise PCManFM can map before desktop hints are handled.
+    for _ in range(100):
+        if '0x' in output(['xprop', '-root', '_NET_SUPPORTING_WM_CHECK']):
+            break
+        time.sleep(.1)
+    else:
+        raise RuntimeError('No X11 window manager became ready.')
+    try:
+        monitors = int(output(['xrandr', '--listmonitors']).splitlines()[0].split(':')[1])
+    except (OSError, ValueError, IndexError, subprocess.SubprocessError):
+        monitors = 1
+    prepare_profile(config, monitors)
+    # Make the standard home-trash directories available before libfm/GVfs
+    # installs its monitors (important on a completely new user profile).
+    data = Path(os.environ.get('XDG_DATA_HOME', home / '.local/share'))
+    (data / 'Trash').mkdir(mode=0o700, parents=True, exist_ok=True)
+    for name in ('files', 'info'):
+        (data / 'Trash' / name).mkdir(mode=0o700, parents=True, exist_ok=True)
+    # GLib/libfm follows XDG user directories, including localized folder names.
+    desktop = output(['xdg-user-dir', 'DESKTOP']).strip()
+    if desktop and Path(desktop) != home:
+        Path(desktop).mkdir(parents=True, exist_ok=True)
+    child = subprocess.Popen(['pcmanfm', '--profile=emwm-desktop', '--desktop'])
+    watcher = None
+    stopped = False
+
+    def stop(*_):
+        nonlocal stopped
+        stopped = True
+
+    for sig in (signal.SIGTERM, signal.SIGINT, signal.SIGHUP):
+        signal.signal(sig, stop)
+    try:
+        time.sleep(.4)
+        if child.poll() is not None:
+            # PCManFM uses a singleton per display, not per profile. Do not send
+            # wallpaper commands to a pre-existing file manager's profile.
+            raise RuntimeError('PCManFM already running on this display or failed to start; wallpaper synchronization was not attached.')
+        watcher = subprocess.Popen(['xprop', '-spy', '-root', '_NET_CURRENT_DESKTOP', 'RESOURCE_MANAGER'],
+                                   stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
+        os.set_blocking(watcher.stdout.fileno(), False)
+        selector = selectors.DefaultSelector()
+        selector.register(watcher.stdout, selectors.EVENT_READ)
+        pending = b''
+        workspace = 0
+        last_wallpaper = object()
+        refresh = True
+        resource_file = home / '.config/emwm/backdrops.resources'
+        stamp = None
+        last_check = 0
+        while not stopped and child.poll() is None and watcher.poll() is None:
+            for key, _ in selector.select(.5):
+                chunk = os.read(key.fd, 65536)
+                if not chunk:
+                    stopped = True
+                    break
+                pending += chunk
+                while b'\n' in pending:
+                    line, pending = pending.split(b'\n', 1)
+                    text = line.decode(errors='replace')
+                    if text.startswith('_NET_CURRENT_DESKTOP'):
+                        match = re.search(r'=\s*(\d+)', text)
+                        if match:
+                            workspace = int(match[1])
+                        refresh = True
+                    elif text.startswith('RESOURCE_MANAGER'):
+                        refresh = True
+            if time.monotonic() - last_check >= 1:
+                try:
+                    new_stamp = resource_file.stat().st_mtime_ns
+                except FileNotFoundError:
+                    new_stamp = None
+                if stamp != new_stamp:
+                    refresh = True
+                    stamp = new_stamp
+                last_check = time.monotonic()
+            if refresh:
+                refresh = False
+                resources = output(['xrdb', '-query'])
+                # The persistent file also covers apply operations before xrdb updates.
+                if resource_file.exists():
+                    resources += '\n' + resource_file.read_text()
+                wallpaper = wallpapers(resources).get(workspace)
+                if wallpaper and not Path(wallpaper).is_file():
+                    wallpaper = None
+                # Include mtime: regenerated images may keep the same filename.
+                current = (wallpaper, Path(wallpaper).stat().st_mtime_ns if wallpaper else None)
+                if current != last_wallpaper:
+                    args = ['pcmanfm', '--profile=emwm-desktop']
+                    args += ['--set-wallpaper', wallpaper, '--wallpaper-mode=screen'] if wallpaper else ['--wallpaper-mode=color']
+                    subprocess.run(args, check=True, timeout=5)
+                    last_wallpaper = current
+    finally:
+        if watcher is not None and watcher.poll() is None:
+            watcher.terminate()
+            watcher.wait(timeout=5)
+        if child.poll() is None:
+            child.terminate()
+            child.wait(timeout=5)
+
+
+if __name__ == '__main__':
+    try:
+        main()
+    except (OSError, RuntimeError, subprocess.SubprocessError) as error:
+        print(f'emwm-desktop-icons: {error}', file=sys.stderr)
+        sys.exit(1)

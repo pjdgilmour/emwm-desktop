@@ -244,12 +244,16 @@ class Settings:
             result['colors'] = {key: value.lower() for key, value in colors.items()}
         return result
 
-    def apply(self, values):
+    def apply(self, values, compositor=None):
         values = self.validate(values)
         for key,kind in [('theme','gtk'),('icons','icons'),('cursor','cursor')]:
             if values[key] not in self.discover(kind): raise ValueError(f'Tema não encontrado: {values[key]}')
         backup = self.state/'emwm-desktop/appearance-backups'/datetime.now().strftime('%Y%m%d-%H%M%S-%f')
         changes = {}
+        if compositor is not None:
+            from compositor import configuration
+            path, content = configuration(self.config, compositor)
+            changes[path] = content
         settings = {'gtk-theme-name':values['theme'], 'gtk-icon-theme-name':values['icons'],
                     'gtk-cursor-theme-name':values['cursor'], 'gtk-cursor-theme-size':str(values['size'])}
         for version in ('3.0','4.0'):

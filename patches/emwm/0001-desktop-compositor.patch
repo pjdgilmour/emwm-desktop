@@ -1,0 +1,311 @@
+--- a/src/WmGlobal.h
++++ b/src/WmGlobal.h
+@@ -1523,6 +1523,7 @@
+     XPoint	clientOffset;			/* frame to client window */
+     XmString	clientTitle;			/* WM_NAME field */
+     XmString	ewmhClientTitle;		/* _NET_WM_NAME */
++    Boolean desktopSurface;             /* EWMH file desktop, never decorated */
+     struct _ArgbFrame *argbFrame;        /* alpha-preserving frame resources */
+     Window	clientFrameWin;			/* top-level, frame window */
+     Window	clientStretchWin[STRETCH_COUNT];/* for resizing border */
+--- a/src/WmEwmh.h
++++ b/src/WmEwmh.h
+@@ -38,3 +38,9 @@
+ void UpdateEwmhActiveWorkspace(WmScreenData*, WorkspaceID);
+ 
+ #endif /* WmEwmh_h */
++
++/* EMWM Desktop integration. These hooks do not require a compositor. */
++extern Boolean IsDesktopSurface(Window window);
++extern void RestackDesktopSurfaces(WmScreenData *screen);
++extern void PublishCompositorFrame(ClientData *client);
++extern void NotifyCompositorTransition(ClientData *client, int kind, int phase);
+--- a/src/WmEwmh.c
++++ b/src/WmEwmh.c
+@@ -63,7 +63,7 @@
+ 	_NET_WM_ACTION_MINIMIZE, _NET_WM_ACTION_MAXIMIZE_HORZ,
+ 	_NET_WM_ACTION_MAXIMIZE_VERT, _NET_WM_ACTION_FULLSCREEN,
+ 	_NET_WM_ACTION_CLOSE, _NET_WM_FULLSCREEN_MONITORS,
+-	_NET_WM_WINDOW_TYPE, _NET_WM_WINDOW_TYPE_SPLASH,
++	_NET_WM_WINDOW_TYPE_DESKTOP, _NET_WM_WINDOW_TYPE, _NET_WM_WINDOW_TYPE_SPLASH,
+ 	_NET_WM_WINDOW_TYPE_TOOLBAR, _NET_WM_WINDOW_TYPE_UTILITY,
+ 	_NET_WM_WINDOW_TYPE_DIALOG, _NET_WM_FULL_PLACEMENT,
+ 
+@@ -84,7 +84,7 @@
+ 	"_NET_WM_ACTION_MINIMIZE", "_NET_WM_ACTION_MAXIMIZE_HORZ",
+ 	"_NET_WM_ACTION_MAXIMIZE_VERT", "_NET_WM_ACTION_FULLSCREEN",
+ 	"_NET_WM_ACTION_CLOSE", "_NET_WM_FULLSCREEN_MONITORS",
+-	"_NET_WM_WINDOW_TYPE", "_NET_WM_WINDOW_TYPE_SPLASH",
++	"_NET_WM_WINDOW_TYPE_DESKTOP", "_NET_WM_WINDOW_TYPE", "_NET_WM_WINDOW_TYPE_SPLASH",
+ 	"_NET_WM_WINDOW_TYPE_TOOLBAR", "_NET_WM_WINDOW_TYPE_UTILITY",
+ 	"_NET_WM_WINDOW_TYPE_DIALOG", "_NET_WM_FULL_PLACEMENT"
+ 
+@@ -994,3 +994,54 @@
+ 	if(size) *size = ret_items;
+ 	return result;
+ }
++
++/* Desktop integration uses the existing Motif workspace and focus machinery. */
++Boolean IsDesktopSurface(Window window)
++{
++    unsigned long count = 0, i;
++    Atom *types = FetchWindowProperty(window, ewmh_atoms[_NET_WM_WINDOW_TYPE], XA_ATOM, &count);
++    Boolean found = False;
++    for (i = 0; types && i < count; ++i)
++        if (types[i] == ewmh_atoms[_NET_WM_WINDOW_TYPE_DESKTOP]) found = True;
++    if (types) XFree(types);
++    return found;
++}
++
++void RestackDesktopSurfaces(WmScreenData *screen)
++{
++    ClientListEntry *entry;
++    for (entry = screen->clientList; entry; entry = entry->nextSibling)
++        if (entry->type == NORMAL_STATE && entry->pCD->desktopSurface)
++            XLowerWindow(DISPLAY, entry->pCD->clientFrameWin);
++    /* Workspace backdrops stay beneath the desktop, including after switching. */
++    if (screen->lastBackdropWin) XLowerWindow(DISPLAY, screen->lastBackdropWin);
++}
++
++void PublishCompositorFrame(ClientData *client)
++{
++    Atom prop = XInternAtom(DISPLAY, "_EMWM_FRAME_CLIENT", False);
++    unsigned long value = client->client;
++    XChangeProperty(DISPLAY, client->clientFrameWin, prop, XA_WINDOW, 32,
++                    PropModeReplace, (unsigned char *)&value, 1);
++}
++
++void NotifyCompositorTransition(ClientData *client, int kind, int phase)
++{
++    XEvent event;
++    char name[64];
++    Atom selection;
++    if (!kind || client->desktopSurface) return;
++    snprintf(name, sizeof(name), "_NET_WM_CM_S%d", client->pSD->screen);
++    selection = XInternAtom(DISPLAY, name, False);
++    if (!XGetSelectionOwner(DISPLAY, selection)) return;
++    memset(&event, 0, sizeof(event));
++    event.xclient.type = ClientMessage;
++    event.xclient.window = client->pSD->rootWindow;
++    event.xclient.message_type = XInternAtom(DISPLAY, "_EMWM_ANIMATION", False);
++    event.xclient.format = 32;
++    event.xclient.data.l[0] = client->clientFrameWin;
++    event.xclient.data.l[1] = kind;
++    event.xclient.data.l[2] = ICON_FRAME_WIN(client);
++    event.xclient.data.l[3] = phase;
++    XSendEvent(DISPLAY, client->pSD->rootWindow, False, SubstructureNotifyMask, &event);
++}
+--- a/src/WmWinInfo.c
++++ b/src/WmWinInfo.c
+@@ -169,6 +169,7 @@
+     pCD->clientCmapFlagsInitialized = FALSE;
+     pCD->systemMenuSpec = NULL;
+     pCD->putInAll = False;
++    pCD->desktopSurface = False;
+     pCD->pWorkspaceHints = NULL;
+     pCD->numInhabited = 0;
+     pCD->pWsList = NULL;
+@@ -290,6 +291,7 @@
+      */
+ 
+     ProcessClientResources (pCD);
++    pCD->desktopSurface = IsDesktopSurface(pCD->client);
+ 
+     /*
+      * Retreive and process SM_CLIENT_ID client window property info
+@@ -2621,6 +2623,8 @@
+     int origX, origY, origWidth, origHeight;
+     int iwsc;
+ 
++    if (pCD->desktopSurface) return False;
++
+     /*
+      * Save initial client values
+      */
+@@ -3756,4 +3760,12 @@
+     pCD->decor = pCD->clientDecoration;  /* !!! combine decor ... !!! */
+ 
+ 
++    if (pCD->desktopSurface) {
++        pCD->clientDecoration = pCD->decor = 0;
++        pCD->matteWidth = 0;
++        pCD->internalBevel = 0;
++        pCD->clientFunctions = 0;
++        pCD->focusAutoRaise = False;
++    }
++
+ } /* END OF ProcessMwmHints */
+--- a/src/WmWrkspace.c
++++ b/src/WmWrkspace.c
+@@ -747,6 +747,12 @@
+ 	pCD->pWsList[i].pIconBox = NULL;
+     }
+     pCD->putInAll = bAll = False;
++    if (pCD->desktopSurface) {
++        pCD->putInAll = True;
++        for (i = 0; i < pCD->pSD->numWorkspaces; ++i)
++            PutClientIntoWorkspace(&pCD->pSD->pWS[i], pCD);
++        return True;
++    }
+ 
+     /* 
+      * Determine initial workspace set.
+--- a/src/WmManage.c
++++ b/src/WmManage.c
+@@ -27,6 +27,7 @@
+  */
+ 
+ #include "WmGlobal.h"
++#include "WmEwmh.h"
+ #include "WmICCC.h"
+ /*
+  * include extern functions
+@@ -561,6 +562,7 @@
+ 
+     pCD->clientState = WITHDRAWN_STATE;
+     pCD->clientFlags &= ~WM_INITIALIZATION;
++    PublishCompositorFrame(pCD);
+ 
+     /* 
+      * Add to stacking list using the client's zero'th workspace
+@@ -570,6 +572,7 @@
+     AddClientToList (GetWorkspaceData (pSD, pCD->pWsList[0].wsID),
+ 	pCD, True /*on top*/);
+     SetClientState (pCD, initialState, GetTimestamp());
++    RestackDesktopSurfaces(pSD);
+ 
+     /*
+      * Set the keyboard input focus to the newly managed window if appropriate:
+@@ -583,7 +586,7 @@
+      *   is a window that generally doesn't take input
+      */
+ 
+-    if ((wmGD.keyboardFocusPolicy == KEYBOARD_FOCUS_EXPLICIT) &&
++    if (!pCD->desktopSurface && (wmGD.keyboardFocusPolicy == KEYBOARD_FOCUS_EXPLICIT) &&
+ 	((pCD->inputMode == MWM_INPUT_SYSTEM_MODAL) ||
+ 	 ((!wmGD.systemModalActive ||
+ 	   (wmGD.systemModalClient == FindTransientTreeLeader (pCD))) &&
+--- a/src/WmWinList.c
++++ b/src/WmWinList.c
+@@ -94,6 +94,7 @@
+     XWindowChanges windowChanges;
+     WmScreenData *pSD = pWS->pSD;
+     WsClientData *pWsc = GetWsClientData (pWS, pCD);
++    if (pCD->desktopSurface) onTop = False;
+ 
+ 
+     if (pCD->inputMode == MWM_INPUT_SYSTEM_MODAL)
+@@ -1690,6 +1691,7 @@
+ 	}
+     }
+ 
++    RestackDesktopSurfaces(pSD);
+ } /* END OF FUNCTION StackWindow */
+ 
+ 
+--- a/src/WmBackdrop.c
++++ b/src/WmBackdrop.c
+@@ -25,6 +25,7 @@
+ #define CHANGE_BACKDROP		(1L << 0)
+ 
+ #include "WmGlobal.h"
++#include "WmEwmh.h"
+ #include "WmICCC.h"
+ #include "WmResource.h"
+ #include "WmResNames.h"
+@@ -98,6 +99,7 @@
+     }
+ 
+     pWS->pSD->lastBackdropWin = pWS->backdrop.window;
++    RestackDesktopSurfaces(pWS->pSD);
+ 
+ }
+ 
+--- a/src/WmKeyFocus.c
++++ b/src/WmKeyFocus.c
+@@ -1302,6 +1302,8 @@
+      * Make sure the window is being displayed and is of the specified type.
+      */
+ 
++    if (pCD->desktopSurface) return False;
++
+     if (((pNextEntry->type == NORMAL_STATE) &&
+          (!(pCD->clientState & UNSEEN_STATE)) &&
+ 	 (pCD->clientState != MINIMIZED_STATE)) ||
+--- a/src/WmWinState.c
++++ b/src/WmWinState.c
+@@ -105,6 +105,7 @@
+     int currentState;
+     WmScreenData *pSD = PSD_FOR_CLIENT(pCD);
+     Boolean notShowing = (newState & UNSEEN_STATE);
++    int transition = 0;
+ 
+     currentState = pCD->clientState;
+     if (currentState == newState)
+@@ -164,6 +165,15 @@
+ 	    return;
+ 	}
+     }
++
++    if (!(currentState & UNSEEN_STATE) && !(newState & UNSEEN_STATE) &&
++        currentState != WITHDRAWN_STATE && newState != WITHDRAWN_STATE) {
++        if (newState == MINIMIZED_STATE) transition = 1;
++        else if (currentState == MINIMIZED_STATE) transition = 2;
++        else if (newState == MAXIMIZED_STATE) transition = 3;
++        else if (currentState == MAXIMIZED_STATE && newState == NORMAL_STATE) transition = 4;
++    }
++    NotifyCompositorTransition(pCD, transition, 0);
+ 
+     switch (newState)
+     {
+@@ -342,6 +352,7 @@
+     }
+ 
+ 	UpdateEwmhClientState(pCD);
++    NotifyCompositorTransition(pCD, transition, 1);
+ 
+ } /* END OF FUNCTION SetClientStateWithEventMask */
+ 
+--- a/tests/run-x11.sh
++++ b/tests/run-x11.sh
+@@ -65,7 +65,12 @@
+ blur-method = "none";
+ unredir-if-possible = false;
+ CONFIG
+-    ${PICOM:-picom} --config "$work/picom.conf" >"$work/picom.log" 2>&1 &
++    if [ -n "${EMWM_COMPOSITOR:-}" ]; then
++        printf '%s\n' '[compositor]' 'backend=xrender' 'shadows=false' 'effect=none' 'fade_ms=0' >"$work/native.conf"
++        "$EMWM_COMPOSITOR" --backend "${EMWM_TEST_BACKEND:-xrender}" --config "$work/native.conf" >"$work/picom.log" 2>&1 &
++    else
++        ${PICOM:-picom} --config "$work/picom.conf" >"$work/picom.log" 2>&1 &
++    fi
+     cmpid=$!
+     sleep 1
+     kill -0 "$cmpid"
+--- a/tests/close-button.c
++++ b/tests/close-button.c
+@@ -91,7 +91,7 @@
+     abort();
+ }
+ 
+-/* Verify per-pixel alpha, opaque text/decoration, and actual picom output. */
++/* Verify per-pixel alpha, opaque text/decoration, and actual compositor output. */
+ static void check_argb(Window w)
+ {
+     Window f = frame(w), child;
+@@ -140,13 +140,13 @@
+     assert(pixels);
+     /* The test runner provides an opaque blue window behind the client. */
+     pixel = XGetPixel(pixels, 10, 10) & 0xffffff;
+-    printf("picom blended pixel=%#lx (expected approximately 0x80007f)\n", pixel);
++    printf("compositor blended pixel=%#lx (expected approximately 0x80007f)\n", pixel);
+     assert(((pixel >> 16) & 255) >= 127 && ((pixel >> 16) & 255) <= 129);
+     assert((pixel & 255) >= 126 && (pixel & 255) <= 128);
+     assert((XGetPixel(pixels, 25, 25) & 0xffffff) == 0xffffff);
+     assert((XGetPixel(pixels, 55, 25) & 0xffffff) == 0x0000ff);
+     XDestroyImage(pixels);
+-    puts("PASS: ARGB pixels preserved, text/decorations opaque, picom blends background");
++    puts("PASS: ARGB pixels preserved, text/decorations opaque, compositor blends background");
+ }
+ 
+ static void fullscreen(Window w, Bool enable)

@@ -34,18 +34,18 @@ exec >>"$state_dir/session.log" 2>&1
 [ ! -f "$HOME/.Xprofile" ] || . "$HOME/.Xprofile"
 config_dir=${XDG_CONFIG_HOME:-"$HOME/.config"}/emwm-desktop
 EMWM_DESKTOP_COMPOSITOR=1
+EMWM_DESKTOP_ICONS=1
 EMWM_DESKTOP_TRAY=1
 EMWM_DESKTOP_NETWORK=1
 EMWM_DESKTOP_KEYRING=1
 EMWM_DESKTOP_POLKIT=1
-EMWM_DESKTOP_PICOM_BACKEND=xrender
 # shellcheck disable=SC1091
 [ ! -f "$config_dir/session.conf" ] || . "$config_dir/session.conf"
 # Appearance selections take precedence over a fixed GTK_THEME in old profiles.
 if [ -f "$config_dir/appearance/session.sh" ]; then
     # shellcheck disable=SC1091
     . "$config_dir/appearance/session.sh"
-    if command -v emwm-appearance >/dev/null 2>&1; then emwm-appearance --session; fi
+    "$EMWM_DESKTOP_PREFIX/bin/emwm-appearance" --session
 fi
 # Restore the private binaries in PATH if a user profile replaced PATH entirely.
 PATH="$EMWM_DESKTOP_PREFIX/bin:$PATH"
@@ -66,7 +66,8 @@ start_once() {
 # Toolchest hosts the tray below its clock, including after a toolbox restart.
 export EMWM_DESKTOP_TRAY
 if [ "$EMWM_DESKTOP_COMPOSITOR" = 1 ]; then
-    start_once '^(/[^ ]*/)?picom([[:space:]]|$)' picom --backend "$EMWM_DESKTOP_PICOM_BACKEND" --config "$EMWM_DESKTOP_DATA/picom.conf"
+    "$EMWM_DESKTOP_PREFIX/bin/emwm-compositor" &
+    compositor_pid=$!
 fi
 if [ "$EMWM_DESKTOP_POLKIT" = 1 ]; then
     start_once '^(/[^ ]*/)?polkit-mate-authentication-agent-1([[:space:]]|$)' /usr/libexec/polkit-mate-authentication-agent-1
@@ -77,4 +78,25 @@ fi
 if [ "$EMWM_DESKTOP_NETWORK" = 1 ]; then
     start_once '^(/[^ ]*/)?nm-applet([[:space:]]|$)' nm-applet
 fi
-exec "$EMWM_DESKTOP_PREFIX/bin/xmsm"
+# Own only the processes started by this session. The compositor itself arbitrates
+# its X screen selection; a compositor on another DISPLAY must not inhibit it.
+cleanup_desktop() {
+    [ -z "${icons_pid:-}" ] || kill "$icons_pid" 2>/dev/null || :
+    [ -z "${compositor_pid:-}" ] || kill "$compositor_pid" 2>/dev/null || :
+    [ -z "${sm_pid:-}" ] || kill "$sm_pid" 2>/dev/null || :
+    [ -z "${icons_pid:-}" ] || wait "$icons_pid" 2>/dev/null || :
+    [ -z "${compositor_pid:-}" ] || wait "$compositor_pid" 2>/dev/null || :
+    [ -z "${sm_pid:-}" ] || wait "$sm_pid" 2>/dev/null || :
+}
+trap cleanup_desktop EXIT
+trap 'exit 0' HUP INT TERM
+"$EMWM_DESKTOP_PREFIX/bin/xmsm" &
+sm_pid=$!
+if [ "$EMWM_DESKTOP_ICONS" = 1 ]; then
+    "$EMWM_DESKTOP_PREFIX/bin/emwm-desktop-icons" &
+    icons_pid=$!
+fi
+wait "$sm_pid"
+status=$?
+sm_pid=
+exit "$status"

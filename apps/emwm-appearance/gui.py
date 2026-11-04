@@ -26,6 +26,7 @@ def main():
     parser=argparse.ArgumentParser(description='Aparência do EMWM e da tela de login')
     parser.add_argument('--session',action='store_true',help='Ativar as preferências salvas, sem janela.')
     parser.add_argument('--list',action='store_true',help='Listar temas e detectar o gerenciador de login.')
+    parser.add_argument('--effects',action='store_true',help='Abrir a aba de efeitos e renderização.')
     args=parser.parse_args()
     settings=Settings()
     if args.list:
@@ -57,9 +58,12 @@ def main():
             outer=Gtk.Box(orientation=Gtk.Orientation.VERTICAL,spacing=12)
             layout=Gtk.Box(orientation=Gtk.Orientation.VERTICAL,spacing=12)
             self.add(layout)
+            self.pages=Gtk.Notebook()
+            layout.pack_start(self.pages,True,True,0)
             scroll=Gtk.ScrolledWindow()
             scroll.set_policy(Gtk.PolicyType.NEVER,Gtk.PolicyType.AUTOMATIC)
-            scroll.add(outer); layout.pack_start(scroll,True,True,0)
+            scroll.add(outer)
+            self.pages.append_page(scroll,Gtk.Label(label='Temas e cores'))
             intro=Gtk.Label(label='Temas dos aplicativos, ícones e ponteiro do mouse',xalign=0)
             outer.pack_start(intro,False,False,0)
             grid=Gtk.Grid(column_spacing=16,row_spacing=10)
@@ -122,6 +126,13 @@ def main():
             check=Gtk.CheckButton(label='Opção de exemplo'); check.set_active(True)
             demo.pack_start(check,False,False,0)
             frame.add(demo); outer.pack_start(frame,False,False,0)
+            from compositor import Controls
+            self.compositor=Controls(Gtk,settings.config)
+            effects_scroll=Gtk.ScrolledWindow()
+            effects_scroll.set_policy(Gtk.PolicyType.AUTOMATIC,Gtk.PolicyType.AUTOMATIC)
+            self.compositor.frame.set_valign(Gtk.Align.START)
+            effects_scroll.add(self.compositor.frame)
+            self.pages.append_page(effects_scroll,Gtk.Label(label='Efeitos e renderização'))
             logintext=f'Tela de login detectada: {self.login["manager"]} / {self.login["greeter"]}'
             outer.pack_start(Gtk.Label(label=logintext,xalign=0),False,False,0)
             self.apply_login=Gtk.CheckButton(label='Aplicar também à tela de login (solicita senha administrativa)')
@@ -138,7 +149,7 @@ def main():
             info=Gtk.Label(label=details,xalign=0); info.set_line_wrap(True); info.set_max_width_chars(76)
             outer.pack_start(info,False,False,0)
             self.status=Gtk.Label(xalign=0); self.status.set_line_wrap(True); self.status.set_max_width_chars(76)
-            outer.pack_start(self.status,True,True,0)
+            layout.pack_start(self.status,False,False,0)
             buttons=Gtk.ButtonBox(orientation=Gtk.Orientation.HORIZONTAL)
             buttons.set_layout(Gtk.ButtonBoxStyle.END)
             self.reset=Gtk.Button(label='Recarregar'); self.reset.connect('clicked',self.reload)
@@ -220,6 +231,7 @@ def main():
 
         def reload(self,*_):
             values=settings.current()
+            self.compositor.reload()
             for key,kind in [('theme','gtk'),('icons','icons'),('cursor','cursor')]:
                 self.populate(key,kind,self.combos[key],values[key])
             self.size.set_value(values['size']); self.palette.set_active_id(values['palette'])
@@ -239,8 +251,9 @@ def main():
                     raise ValueError('Instale o componente administrativo primeiro: sudo ./apps/emwm-appearance/install-system.sh (no repositório emwm-desktop).')
                 if login:
                     settings.validate_login_themes(values)
-                backup=settings.apply(values)
+                backup=settings.apply(values,compositor=self.compositor.values())
                 notes=apply_live(settings,values)
+                notes.append('Composição: o compositor ativo lê os efeitos em até um segundo; serão usados também no próximo login.')
                 self.status.set_text('Aplicado à sessão. Backup: '+str(backup)+'\n'+'\n'.join(notes)+
                     '\nCores Motif: reinicie o EMWM para atualizar as decorações e reabra os aplicativos Motif.'+
                     '\nSe a sessão foi iniciada com GTK_THEME fixado, saia e entre novamente uma vez para liberar a troca de tema em todos os aplicativos.')
@@ -262,6 +275,8 @@ def main():
             self.status.set_text(self.status.get_text()+'\n'+message)
             return False
 
-    window=Window(); window.show_all(); Gtk.main()
+    window=Window(); window.show_all()
+    if args.effects: window.pages.set_current_page(1)
+    Gtk.main()
 
 if __name__=='__main__': main()

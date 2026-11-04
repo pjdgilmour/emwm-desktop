@@ -21,14 +21,15 @@ BUILD_DEPS = [
     'build-essential', 'git', 'patch', 'ca-certificates', 'python3', 'python3-pil', 'cmake', 'pkg-config',
     'dpkg-dev', 'libmotif-dev', 'libx11-dev', 'libxt-dev', 'libxext-dev',
     'libxrender-dev', 'libxrandr-dev', 'libxinerama-dev', 'libxss-dev',
+    'libxcomposite-dev', 'libxdamage-dev', 'libxfixes-dev', 'libgl-dev',
     'libcrypt-dev', 'libgarcon-1-dev', 'libglib2.0-dev', 'libgtkmm-3.0-dev',
 ]
 TEST_DEPS = ['xvfb', 'x11-xserver-utils', 'x11-utils', 'libxtst-dev',
-             'libxcomposite-dev', 'picom', 'dbus-daemon', 'procps',
+             'libxcomposite-dev', 'dbus-daemon', 'procps', 'pcmanfm', 'gvfs', 'xdg-user-dirs',
              'fonts-liberation', 'xfonts-base', 'python3-gi', 'python3-gi-cairo', 'python3-pil', 'gir1.2-gtk-3.0', 'xsettingsd']
 RUNTIME = [
     'xserver-xorg', 'xinit', 'x11-xserver-utils', 'x11-utils', 'xterm', 'pcmanfm',
-    'picom', 'mate-polkit', 'gnome-keyring', 'libpam-gnome-keyring',
+    'gvfs', 'xdg-user-dirs', 'mate-polkit', 'gnome-keyring', 'libpam-gnome-keyring',
     'dbus-user-session', 'dbus-x11', 'xdg-utils', 'fonts-liberation', 'procps',
     'python3-gi', 'python3-gi-cairo', 'python3-pil', 'gir1.2-gtk-3.0', 'xsettingsd', 'pkexec',
 ]
@@ -130,9 +131,19 @@ def build(args):
              '-DCMAKE_BUILD_TYPE=Release'])
         run(['cmake', '--build', wallpaper, '-j', args.jobs])
         run(['ctest', '--test-dir', wallpaper, '--output-on-failure'])
+        compositor = work / 'compositor-build'
+        run(['cmake', '-S', ROOT / 'apps/emwm-compositor', '-B', compositor,
+             '-DCMAKE_BUILD_TYPE=Release'])
+        run(['cmake', '--build', compositor, '-j', args.jobs])
+        run(['ctest', '--test-dir', compositor, '--output-on-failure'])
+        run([sys.executable, '-m', 'unittest', 'discover', '-s',
+             ROOT / 'apps/emwm-desktop-icons/tests', '-v'])
         if args.test:
             run(['make', 'test'], cwd=wm)
-            run(['make', 'test-argb'], cwd=wm)
+            run(['make', 'test-argb'], cwd=wm,
+                env=dict(os.environ, EMWM_COMPOSITOR=str(compositor / 'emwm-compositor')))
+            run([sys.executable, ROOT / 'tests/native-desktop.py',
+                 '--wm', wm / 'src/emwm', '--compositor', compositor / 'emwm-compositor'])
             run(['make', 'test-x11'], cwd=utils)
             run(['sh', ROOT / 'tests/run-toolchest-tray.sh', utils])
             env = dict(os.environ, EMWM_BINARY=str(wm / 'src/emwm'))
@@ -147,9 +158,11 @@ def build(args):
         bins = {'emwm': wm / 'src/emwm', 'xmtoolbox': utils / 'src/xmtoolbox',
                 'xmtray': utils / 'src/xmtray', 'xmsm': utils / 'src/xmsm',
                 'xmsession': utils / 'src/xmsession', 'tellmwm': tell / 'tellmwm',
-                'emwm-wallpaper-tool': wallpaper / 'emwm-wallpaper-tool'}
+                'emwm-wallpaper-tool': wallpaper / 'emwm-wallpaper-tool',
+                'emwm-compositor': compositor / 'emwm-compositor'}
         for name, src in bins.items():
             copy(src, bin_dir / name, 0o4755 if name == 'xmsm' else 0o755)
+        copy(ROOT / 'apps/emwm-desktop-icons/emwm-desktop-icons', bin_dir / 'emwm-desktop-icons', 0o755)
         for name, src in {'Emwm': wm / 'src/Emwm.ad', 'XmSm': utils / 'src/XmSm.ad',
                           'XmToolbox': utils / 'src/XmToolbox.ad'}.items():
             copy(src, data_dir / 'app-defaults' / name)
@@ -160,9 +173,10 @@ def build(args):
         for src in (ROOT / 'config').iterdir():
             copy(src, data_dir / src.name)
         appearance = ROOT / 'apps/emwm-appearance'
-        for name in ['core.py', 'gui.py', 'runtime.py', 'login_helper.py', 'wallpaper.py', 'wallpaper_ui.py']:
+        for name in ['core.py', 'gui.py', 'runtime.py', 'login_helper.py', 'wallpaper.py', 'wallpaper_ui.py', 'compositor.py']:
             copy(appearance / name, stage / PREFIX.lstrip('/') / 'appearance' / name)
         copy(appearance / 'emwm-appearance', stage / 'usr/bin/emwm-appearance', 0o755)
+        copy(appearance / 'emwm-appearance', bin_dir / 'emwm-appearance', 0o755)
         copy(appearance / 'emwm-appearance.desktop', stage / 'usr/share/applications/emwm-appearance.desktop')
         copy(ROOT / 'session/emwm-desktop-session', stage / 'usr/bin/emwm-desktop-session', 0o755)
         copy(ROOT / 'packaging/emwm-desktop.desktop', stage / 'usr/share/xsessions/emwm-desktop.desktop')
@@ -177,6 +191,8 @@ def build(args):
         copy(ROOT / 'LICENSE', doc / 'licenses/emwm-desktop-GPL-3')
         copy(wm / 'COPYING', doc / 'licenses/emwm-COPYING')
         copy(utils / 'COPYING', doc / 'licenses/emwm-utils-COPYING')
+        copy(ROOT / 'apps/emwm-compositor/COPYING.WindowMaker', doc / 'licenses/WindowMaker-GPL-2')
+        copy(ROOT / 'apps/emwm-compositor/README.md', doc / 'compositor.md')
         copy(tell / 'COPYING', doc / 'licenses/tellmwm-COPYING')
         copy(ROOT / 'sources.lock.json', doc / 'sources.lock.json')
         copy(source_tar, doc / 'sources.tar.xz')
@@ -192,6 +208,8 @@ def build(args):
         arch = run(['dpkg', '--print-architecture'], capture=True).strip()
         control = stage / 'DEBIAN'
         control.mkdir()
+        for script in ['postinst', 'postrm']:
+            copy(ROOT / 'packaging' / script, control / script, 0o755)
         size = sum(p.stat().st_size for p in stage.rglob('*') if p.is_file()) // 1024
         (control / 'control').write_text(
             f'Package: emwm-desktop\nVersion: {version}\nArchitecture: {arch}\nSection: x11\nPriority: optional\n'

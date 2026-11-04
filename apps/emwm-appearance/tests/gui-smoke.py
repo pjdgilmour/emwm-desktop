@@ -27,13 +27,21 @@ def check():
         assert saved['size']==32,saved
         assert saved['palette']=='custom',saved
         assert saved['colors']['Emwm*client*activeBackground']=='#123456',saved
+        from compositor import current
+        effects=current(settings.config)
+        assert effects['effect']=='twist' and effects['backend']=='glx',effects
+        assert effects['duration_ms']==350 and effects['shadow_opacity']==.65,effects
         resources=subprocess.check_output(['xrdb','-query'],text=True)
         assert 'Emwm*client*activeBackground:\t#123456' in resources,resources
         win=next(w for w in Gtk.Window.list_toplevels() if w.get_title()=='Aparência do EMWM')
+        assert win.pages.get_n_pages()==2
+        win.pages.set_current_page(1)
+        assert win.pages.get_tab_label_text(win.pages.get_nth_page(1))=='Efeitos e renderização'
         color=Gdk.RGBA(); color.parse('#abcdef')
         win.color_buttons['Emwm*client*activeBackground'].set_rgba(color)
         win.reset.clicked()
         assert win.values()['colors']['Emwm*client*activeBackground']=='#123456'
+        assert win.compositor.values()['effect']=='twist'
         assert 'backdrops.resources' in (settings.home/'.Xresources').read_text()
         probe='''import gi; gi.require_version("Gtk","3.0"); from gi.repository import Gtk; Gtk.init([]); s=Gtk.Settings.get_default(); print(s.get_property("gtk-theme-name"),s.get_property("gtk-icon-theme-name"),s.get_property("gtk-cursor-theme-name"),s.get_property("gtk-cursor-theme-size"))'''
         env=dict(os.environ); env.pop('GTK_THEME',None)
@@ -77,6 +85,11 @@ def apply():
         button.set_rgba(color); button.emit('color-set')
         assert win.palette.get_active_id()=='custom'
         assert not (settings.directory/'selection.json').exists(), 'preview must not save'
+        win.compositor.widgets['effect'].set_active_id('twist')
+        win.compositor.widgets['backend'].set_active_id('glx')
+        win.compositor.widgets['duration_ms'].set_value(350)
+        win.compositor.widgets['shadow_opacity'].set_value(65)
+        assert not (settings.config/'emwm-desktop/compositor.conf').exists(), 'selection must not apply effects'
         win.apply.clicked()
         GLib.timeout_add(600,check)
     except Exception:

@@ -36,23 +36,24 @@ class SessionTests(unittest.TestCase):
             (home / '.Xdefaults').write_text('XTerm*faceSize: 12\n')
             (home / '.Xresources').write_text('Emwm*workspaceCount: 4\n')
             (config / 'session.conf').write_text(
-                'EMWM_DESKTOP_POLKIT=0\nEMWM_DESKTOP_NETWORK=0\nEMWM_DESKTOP_PICOM_BACKEND=glx\n'
+                'EMWM_DESKTOP_POLKIT=0\nEMWM_DESKTOP_NETWORK=0\n'
                 f'EMWM_DESKTOP_TRAY={tray}\n')
             before = {p: p.read_bytes() for p in home.rglob('*') if p.is_file()}
             emitter = bins / 'emitter'
             emitter.write_text('''#!/usr/bin/python3
-import json,os,sys
+import json,os,sys,time,shutil
 name=os.path.basename(sys.argv[0])
 if name=='pgrep': sys.exit(1)
 record={'name':name,'args':sys.argv[1:],'profile':os.environ.get('USER_PROFILE_READ'),
         'desktop':os.environ.get('XDG_CURRENT_DESKTOP'),'path':os.environ['PATH'],
-        'tray':os.environ.get('EMWM_DESKTOP_TRAY')}
+        'tray':os.environ.get('EMWM_DESKTOP_TRAY'),'appearance':shutil.which('emwm-appearance')}
 fd=os.open(os.environ['TEST_RECORD'],os.O_WRONLY|os.O_CREAT|os.O_APPEND,0o600)
 os.write(fd,(json.dumps(record)+'\\n').encode());os.close(fd)
+if name=='xmsm': time.sleep(.4)
 ''')
             emitter.chmod(0o755)
             for name in ['xrdb', 'dbus-update-activation-environment', 'pgrep', 'xmsm',
-                         'xmtray', 'picom', 'gnome-keyring-daemon', 'nm-applet']:
+                         'xmtray', 'emwm-compositor', 'emwm-desktop-icons', 'emwm-appearance', 'gnome-keyring-daemon', 'nm-applet']:
                 (bins / name).symlink_to('emitter')
             script = base / 'session'
             script.write_text((ROOT / 'session/emwm-desktop-session').read_text()
@@ -79,8 +80,10 @@ os.write(fd,(json.dumps(record)+'\\n').encode());os.close(fd)
             self.assertNotIn('nm-applet', names)
             self.assertEqual([e['args'][1] for e in events if e['name']=='xrdb'],
                              [str(data/'defaults.Xresources'), str(home/'.Xdefaults'), str(home/'.Xresources')])
-            picom = next(e for e in events if e['name']=='picom')
-            self.assertEqual(picom['args'][:2], ['--backend', 'glx'])
+            self.assertIn('emwm-compositor', names)
+            self.assertIn('emwm-desktop-icons', names)
+            self.assertEqual(next(e for e in events if e['name']=='xmsm')['appearance'],str(bins/'emwm-appearance'))
+            self.assertNotIn('picom', names)
             self.assertTrue(all(e['profile']=='yes' and e['desktop']=='EMWM' for e in events))
             self.assertTrue(all(e['path'].startswith(str(bins)+':') for e in events))
             for path, contents in before.items():
@@ -118,7 +121,8 @@ class PackageTests(unittest.TestCase):
                   'usr/bin/emwm-desktop-session','usr/share/xsessions/emwm-desktop.desktop',
                   'usr/share/emwm-desktop/app-defaults/Emwm','usr/share/emwm-desktop/app-defaults/XmSm',
                   'usr/share/emwm-desktop/emwm-applications.menu']
-        for name in ['emwm','xmsm','xmtoolbox','xmtray','tellmwm','emwm-wallpaper-tool']:
+        for name in ['emwm','xmsm','xmtoolbox','xmtray','tellmwm','emwm-wallpaper-tool',
+                     'emwm-compositor','emwm-desktop-icons','emwm-appearance']:
             required.append('usr/lib/emwm-desktop/bin/'+name)
         for path in required:
             self.assertIn(path,self.files)
@@ -156,7 +160,8 @@ class PackageTests(unittest.TestCase):
             self.assertFalse(any('/.git/' in p or p.endswith('.o') for p in names))
             self.assertIn(b'TrayStart();', sources.extractfile('emwm-utils/src/tbmain.c').read())
         deps=subprocess.check_output(['dpkg-deb','-f',str(self.package),'Depends'],text=True)
-        for package in ['libxm4','libgtkmm-3.0','picom','gnome-keyring']:
+        self.assertNotIn('picom', deps)
+        for package in ['libxm4','libgtkmm-3.0','libgl1','libxdamage1','gvfs','gnome-keyring']:
             self.assertIn(package,deps)
 
 
