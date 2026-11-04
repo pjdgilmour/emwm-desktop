@@ -1,0 +1,74 @@
+/* SPDX-License-Identifier: MIT
+ * Black-box check of the installed Toolchest under the real window manager. */
+#include <X11/Xlib.h>
+#include <X11/Xutil.h>
+#include <assert.h>
+#include <stdio.h>
+#include <string.h>
+#include <unistd.h>
+
+static Display *dpy;
+static Window root;
+static Window parent(Window w) {
+    Window r, p, *children = NULL;
+    unsigned n;
+    assert(XQueryTree(dpy, w, &r, &p, &children, &n));
+    if (children) XFree(children);
+    return p;
+}
+int main(void) {
+    dpy = XOpenDisplay(NULL); assert(dpy);
+    root = DefaultRootWindow(dpy);
+    Atom selection = XInternAtom(dpy, "_NET_SYSTEM_TRAY_S0", False);
+    Atom opcode = XInternAtom(dpy, "_NET_SYSTEM_TRAY_OPCODE", False);
+    Atom info = XInternAtom(dpy, "_XEMBED_INFO", False);
+    Window owner = None, icons[9];
+    for (int i = 0; i < 100 && !owner; ++i) {
+        owner = XGetSelectionOwner(dpy, selection);
+        if (!owner) usleep(20000);
+    }
+    assert(owner != None);
+    for (int i = 0; i < 9; ++i) {
+        unsigned long values[] = {0, 1};
+        icons[i] = XCreateSimpleWindow(dpy, root, 0, 0, 16, 16, 0, 0, 0x40a080);
+        XChangeProperty(dpy, icons[i], info, info, 32, PropModeReplace,
+            (unsigned char *)values, 2);
+        XEvent e = {0};
+        e.xclient.type = ClientMessage; e.xclient.window = owner;
+        e.xclient.message_type = opcode; e.xclient.format = 32;
+        e.xclient.data.l[2] = icons[i];
+        XSendEvent(dpy, owner, False, 0, &e);
+    }
+    XFlush(dpy);
+    for (int i = 0; i < 100 && parent(icons[8]) == root; ++i) usleep(20000);
+    usleep(200000);
+    Window host = parent(parent(icons[0])), top = host;
+    int found = 0;
+    while (top != root) {
+        XClassHint hint = {0};
+        if (XGetClassHint(dpy, top, &hint)) {
+            found = hint.res_class && !strcmp(hint.res_class, "XmToolbox");
+            if (hint.res_name) XFree(hint.res_name);
+            if (hint.res_class) XFree(hint.res_class);
+            if (found) break;
+        }
+        top = parent(top);
+    }
+    assert(found);
+    XWindowAttributes first, attrs;
+    XGetWindowAttributes(dpy, parent(icons[0]), &first);
+    for (int i = 0; i < 9; ++i) {
+        assert(parent(parent(icons[i])) == host);
+        XGetWindowAttributes(dpy, parent(icons[i]), &attrs);
+        assert(attrs.x == first.x + (i % 4)*28);
+        assert(attrs.y == first.y + (i / 4)*28);
+        XGetWindowAttributes(dpy, icons[i], &attrs);
+        assert(attrs.width == 24 && attrs.height == 24 && attrs.map_state == IsViewable);
+    }
+    XGetWindowAttributes(dpy, host, &attrs);
+    assert(attrs.height >= 3*24 + 2*4 + 12);
+    for (int i = 0; i < 9; ++i) XDestroyWindow(dpy, icons[i]);
+    XCloseDisplay(dpy);
+    puts("PASS: packaged Toolchest owns tray and displays nine icons in three rows");
+    return 0;
+}

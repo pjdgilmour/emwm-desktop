@@ -14,6 +14,12 @@ ROOT = Path(__file__).resolve().parent.parent
 
 class SessionTests(unittest.TestCase):
     def test_existing_profile_resource_order_and_component_switches(self):
+        self.check_session('1')
+
+    def test_disabled_tray_is_exported_to_toolchest(self):
+        self.check_session('0')
+
+    def check_session(self, tray):
         with tempfile.TemporaryDirectory() as temp:
             base = Path(temp)
             home = base / 'home'
@@ -30,7 +36,8 @@ class SessionTests(unittest.TestCase):
             (home / '.Xdefaults').write_text('XTerm*faceSize: 12\n')
             (home / '.Xresources').write_text('Emwm*workspaceCount: 4\n')
             (config / 'session.conf').write_text(
-                'EMWM_DESKTOP_POLKIT=0\nEMWM_DESKTOP_NETWORK=0\nEMWM_DESKTOP_PICOM_BACKEND=glx\n')
+                'EMWM_DESKTOP_POLKIT=0\nEMWM_DESKTOP_NETWORK=0\nEMWM_DESKTOP_PICOM_BACKEND=glx\n'
+                f'EMWM_DESKTOP_TRAY={tray}\n')
             before = {p: p.read_bytes() for p in home.rglob('*') if p.is_file()}
             emitter = bins / 'emitter'
             emitter.write_text('''#!/usr/bin/python3
@@ -38,7 +45,8 @@ import json,os,sys
 name=os.path.basename(sys.argv[0])
 if name=='pgrep': sys.exit(1)
 record={'name':name,'args':sys.argv[1:],'profile':os.environ.get('USER_PROFILE_READ'),
-        'desktop':os.environ.get('XDG_CURRENT_DESKTOP'),'path':os.environ['PATH']}
+        'desktop':os.environ.get('XDG_CURRENT_DESKTOP'),'path':os.environ['PATH'],
+        'tray':os.environ.get('EMWM_DESKTOP_TRAY')}
 fd=os.open(os.environ['TEST_RECORD'],os.O_WRONLY|os.O_CREAT|os.O_APPEND,0o600)
 os.write(fd,(json.dumps(record)+'\\n').encode());os.close(fd)
 ''')
@@ -60,12 +68,13 @@ os.write(fd,(json.dumps(record)+'\\n').encode());os.close(fd)
             deadline = time.monotonic()+3
             while time.monotonic() < deadline:
                 events = [json.loads(line) for line in record.read_text().splitlines()]
-                if len(events) >= 8:
+                if len(events) >= 7:
                     break
                 time.sleep(.02)
             names = [e['name'] for e in events]
             self.assertIn('xmsm', names)
-            self.assertIn('xmtray', names)
+            self.assertNotIn('xmtray', names)
+            self.assertEqual(next(e for e in events if e['name']=='xmsm')['tray'], tray)
             self.assertIn('gnome-keyring-daemon', names)
             self.assertNotIn('nm-applet', names)
             self.assertEqual([e['args'][1] for e in events if e['name']=='xrdb'],
@@ -138,11 +147,14 @@ class PackageTests(unittest.TestCase):
         with tarfile.open(fileobj=io.BytesIO(self.read(doc+'sources.tar.xz'))) as sources:
             names=set(sources.getnames())
             for path in ['emwm/COPYING','emwm-utils/COPYING','emwm/src/WmArgb.c',
-                         'emwm-utils/src/tray.c','emwm-desktop/scripts/install.py',
+                         'emwm-utils/src/tray.c','emwm-utils/src/tray.h',
+                         'emwm-desktop/patches/emwm-utils/0001-toolchest-tray.patch',
+                         'emwm-desktop/scripts/install.py',
                          'emwm-desktop/third_party/tellmwm/COPYING',
                          'emwm-desktop/apps/emwm-wallpaper-tool/src/backdrops.cpp']:
                 self.assertIn(path,names)
             self.assertFalse(any('/.git/' in p or p.endswith('.o') for p in names))
+            self.assertIn(b'TrayStart();', sources.extractfile('emwm-utils/src/tbmain.c').read())
         deps=subprocess.check_output(['dpkg-deb','-f',str(self.package),'Depends'],text=True)
         for package in ['libxm4','libgtkmm-3.0','picom','gnome-keyring']:
             self.assertIn(package,deps)

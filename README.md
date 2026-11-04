@@ -89,7 +89,12 @@ As cópias preparadas ficam em `~/.config/emwm/wallpapers/` e são restauradas p
 EMWM no login. Após mudar a resolução ou a disposição dos monitores, aplique o
 fundo novamente na ferramenta.
 
-O `xmtray` implementa bandeja X11/XEmbed, com menus nativos dos aplicativos.
+A bandeja X11/XEmbed fica integrada ao Toolchest, abaixo da data/hora, com
+quatro ícones por linha. A altura se ajusta automaticamente quando os ícones
+entram, saem ou ficam ocultos. Os menus nativos dos aplicativos são preservados.
+Para desativá-la, use `EMWM_DESKTOP_TRAY=0` em `session.conf`.
+O executável `xmtray` continua disponível para uso avulso, mas a sessão não
+abre uma janela de bandeja separada.
 Aplicativos exclusivamente StatusNotifier/AppIndicator sem alternativa XEmbed
 não são suportados nesta versão. Não há daemon de notificações integrado.
 
@@ -124,6 +129,9 @@ Para desenvolver antes de publicar os commits dos forks:
 Esse diretório deve conter `emwm/` e `emwm-utils/`. São extraídos os **commits
 fixados**, sem copiar artefatos de compilação ou alterações ainda não commitadas.
 Depois de modificar um fork, atualize `sources.lock.json` com o novo SHA completo.
+Os patches em `patches/<componente>/` são aplicados em ordem sobre esses commits
+antes da compilação. A integração da bandeja ao Toolchest está nesse diretório;
+o pacote inclui tanto os patches quanto os fontes já modificados.
 Publique os commits nos forks **antes** de publicar uma versão do instalador que
 os referencia. O instalador não segue automaticamente a ponta de uma branch.
 
@@ -146,6 +154,7 @@ ambientes gráficos nem troca preferências globais.
 - `scripts/install.py`: obtenção dos fontes, compilação e montagem do pacote.
 - `session/`: inicializador independente.
 - `config/`: padrões e exemplos genéricos.
+- `patches/`: alterações locais aplicadas aos snapshots fixados dos componentes.
 - `apps/emwm-wallpaper-tool/`: ferramenta de fundos.
 - `third_party/tellmwm/`: cópia do tellmwm 1.2, com licença original.
 - `tests/`: verificações do pacote e da configuração.

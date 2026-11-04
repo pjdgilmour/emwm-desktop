@@ -8,8 +8,11 @@
 Emwm*workspaceCount: 4
 Emwm*client*background: #8c8c8c
 Emwm*client*activeBackground: #7399ba
-XmTray.geometry: +8+360
-XmTray.iconSize: 24
-XmTray.occupyAll: True
+! Use this session's binaries even if system-wide Xt defaults select /usr/bin.
+XmSm.windowManager: /usr/lib/emwm-desktop/bin/emwm
+XmSm.launcher: /usr/lib/emwm-desktop/bin/xmtoolbox
+XmToolbox.systemTray: True
+XmToolbox*tray.iconSize: 24
+XmToolbox*tray.spacing: 4
 XTerm*faceName: Liberation Mono
 XTerm*faceSize: 11

@@ -63,8 +63,8 @@ start_once() {
         "$@" &
     fi
 }
-# Selection ownership makes a second xmtray harmless on the same X screen.
-if [ "$EMWM_DESKTOP_TRAY" = 1 ]; then xmtray & fi
+# Toolchest hosts the tray below its clock, including after a toolbox restart.
+export EMWM_DESKTOP_TRAY
 if [ "$EMWM_DESKTOP_COMPOSITOR" = 1 ]; then
     start_once '^(/[^ ]*/)?picom([[:space:]]|$)' picom --backend "$EMWM_DESKTOP_PICOM_BACKEND" --config "$EMWM_DESKTOP_DATA/picom.conf"
 fi

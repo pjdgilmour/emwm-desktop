@@ -15,7 +15,9 @@ transfere a autoria nem substitui as licenças dos componentes.
 
 Autores originais do EMWM incluem The Open Group (Motif) e alx / fastestcode.org.
 Os cabeçalhos originais são mantidos nos snapshots dos forks. `sources.lock.json`
-identifica precisamente os commits usados. O tellmwm foi copiado dos fontes
+identifica precisamente os commits de base usados. As alterações locais em
+`patches/emwm-utils/`, incluindo a bandeja integrada ao Toolchest, mantêm a
+licença MIT dos utilitários. O tellmwm foi copiado dos fontes
 locais da versão 1.2, sem alterações, preservando README, COPYING e cabeçalhos.
 A ferramenta de fundos inclui as alterações de persistência desenvolvidas para
 esta integração. Não são incluídos os artefatos de compilação da origem.

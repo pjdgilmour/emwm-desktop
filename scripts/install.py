@@ -18,7 +18,7 @@ ROOT = Path(__file__).resolve().parent.parent
 PREFIX = '/usr/lib/emwm-desktop'
 DATA = '/usr/share/emwm-desktop'
 BUILD_DEPS = [
-    'build-essential', 'git', 'ca-certificates', 'python3', 'python3-pil', 'cmake', 'pkg-config',
+    'build-essential', 'git', 'patch', 'ca-certificates', 'python3', 'python3-pil', 'cmake', 'pkg-config',
     'dpkg-dev', 'libmotif-dev', 'libx11-dev', 'libxt-dev', 'libxext-dev',
     'libxrender-dev', 'libxrandr-dev', 'libxinerama-dev', 'libxss-dev',
     'libcrypt-dev', 'libgarcon-1-dev', 'libglib2.0-dev', 'libgtkmm-3.0-dev',
@@ -82,6 +82,11 @@ def copy(src, dest, mode=0o644):
     dest.chmod(mode)
 
 
+def apply_patches(name, source):
+    for patch in sorted((ROOT / 'patches' / name).glob('*.patch')):
+        run(['patch', '--batch', '--forward', '--fuzz=0', '-p1', '-i', patch], cwd=source)
+
+
 def build(args):
     version = (ROOT / 'VERSION').read_text().strip()
     if not re.fullmatch(r'[0-9][0-9A-Za-z.+~:-]*', version):
@@ -96,6 +101,18 @@ def build(args):
         work = Path(temp)
         wm = source_snapshot('emwm', specs['emwm'], work, cache, args.sources)
         utils = source_snapshot('emwm-utils', specs['emwm-utils'], work, cache, args.sources)
+        for name, source in [('emwm', wm), ('emwm-utils', utils)]:
+            apply_patches(name, source)
+        # Archive the exact patched sources before any generated files or binaries.
+        source_tar = work / 'sources.tar.xz'
+        with tarfile.open(source_tar, 'w:xz') as archive:
+            archive.add(wm, arcname='emwm')
+            archive.add(utils, arcname='emwm-utils')
+            for item in ['apps', 'third_party', 'scripts', 'session', 'config', 'packaging',
+                         'patches', 'tests', 'install.sh', 'VERSION', 'sources.lock.json',
+                         'README.md', 'THIRD_PARTY.md', 'LICENSE']:
+                archive.add(ROOT / item, arcname='emwm-desktop/' + item,
+                            filter=lambda member: None if '__pycache__' in member.name.split('/') else member)
         # Always build clean source snapshots, never the user's working trees.
         variables = [f'PREFIX={PREFIX}', f'RCDIR={DATA}', f'APPLRESDIR={DATA}/app-defaults']
         for project in (wm, utils):
@@ -117,6 +134,7 @@ def build(args):
             run(['make', 'test'], cwd=wm)
             run(['make', 'test-argb'], cwd=wm)
             run(['make', 'test-x11'], cwd=utils)
+            run(['sh', ROOT / 'tests/run-toolchest-tray.sh', utils])
             env = dict(os.environ, EMWM_BINARY=str(wm / 'src/emwm'))
             run(['cmake', '--build', wallpaper, '--target', 'test-x11'], env=env)
         run([sys.executable, '-m', 'unittest', 'discover', '-s',
@@ -161,22 +179,7 @@ def build(args):
         copy(utils / 'COPYING', doc / 'licenses/emwm-utils-COPYING')
         copy(tell / 'COPYING', doc / 'licenses/tellmwm-COPYING')
         copy(ROOT / 'sources.lock.json', doc / 'sources.lock.json')
-        # Ship the exact source snapshots for the binaries, including build scripts
-        # and license notices, even when someone redistributes just the .deb.
-        source_tar = doc / 'sources.tar.xz'
-        with tarfile.open(source_tar, 'w:xz') as archive:
-            for name, spec in specs.items():
-                repo = args.sources / name if args.sources else cache / (name + '.git')
-                content = subprocess.check_output(['git', '-C', str(repo), 'archive', spec['revision']])
-                with tarfile.open(fileobj=io.BytesIO(content)) as source:
-                    for member in source.getmembers():
-                        data = source.extractfile(member) if member.isfile() else None
-                        member.name = name + '/' + member.name
-                        archive.addfile(member, data)
-            for item in ['apps', 'third_party', 'scripts', 'session', 'config', 'packaging',
-                         'tests', 'install.sh', 'VERSION', 'sources.lock.json', 'README.md', 'THIRD_PARTY.md', 'LICENSE']:
-                archive.add(ROOT / item, arcname='emwm-desktop/' + item,
-                            filter=lambda member: None if '__pycache__' in member.name.split('/') else member)
+        copy(source_tar, doc / 'sources.tar.xz')
         # Determine ABI dependencies from the actual build, including Debian t64 names.
         debian = work / 'debian'
         debian.mkdir(exist_ok=True)

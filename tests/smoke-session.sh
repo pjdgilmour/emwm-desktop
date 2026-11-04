@@ -6,6 +6,7 @@ if [ "${1:-}" != --private-bus ]; then
 fi
 shift
 package=$1
+project=$(CDPATH='' cd -- "$(dirname "$0")/.." && pwd)
 work=$(mktemp -d)
 xpid=; session_pid=
 cleanup() {
@@ -24,7 +25,8 @@ import sys
 work=Path(sys.argv[1]); root=work/'root'
 prefix=root/'usr/lib/emwm-desktop'; data=root/'usr/share/emwm-desktop'
 # Relocate only this temporary test copy; package paths stay fixed at install time.
-for path in [root/'usr/bin/emwm-desktop-session',data/'app-defaults/XmSm',data/'app-defaults/XmToolbox']:
+for path in [root/'usr/bin/emwm-desktop-session', data/'defaults.Xresources',
+             data/'app-defaults/XmSm', data/'app-defaults/XmToolbox']:
     text=path.read_text().replace('/usr/lib/emwm-desktop',str(prefix)).replace('/usr/share/emwm-desktop',str(data))
     path.write_text(text)
 with (data/'defaults.Xresources').open('a') as stream:
@@ -54,12 +56,15 @@ mapped_class() {
 i=0
 while :; do
     xwininfo -root -tree >"$work/windows"
-    if mapped_class XmTray && mapped_class XmToolbox && xprop -root _NET_SUPPORTING_WM_CHECK | grep '0x' >/dev/null; then break; fi
+    if mapped_class XmToolbox && xprop -root _NET_SUPPORTING_WM_CHECK | grep '0x' >/dev/null; then break; fi
     i=$((i+1)); [ "$i" -lt 100 ] || exit 1
     kill -0 "$session_pid"
     sleep .1
 done
 xprop -root _NET_SUPPORTING_WM_CHECK | grep '0x'
 kill -0 "$session_pid"
+if mapped_class XmTray; then echo 'FAIL: unexpected standalone tray' >&2; exit 1; fi
+cc "$project/tests/probe-toolchest-tray.c" -o "$work/probe-tray" -lX11
+"$work/probe-tray"
 if [ -n "${EMWM_DESKTOP_CAPTURE:-}" ]; then import -display "$DISPLAY" -window root "$EMWM_DESKTOP_CAPTURE"; fi
-printf '%s\n' 'PASS: extracted package starts xmsm, EMWM, Toolchest and xmtray on an isolated X server'
+printf '%s\n' 'PASS: extracted package starts xmsm, EMWM and Toolchest with integrated tray on an isolated X server'
