@@ -92,6 +92,8 @@ fundo novamente na ferramenta.
 A bandeja X11/XEmbed fica integrada ao Toolchest, abaixo da data/hora, com
 quatro ícones por linha. A altura se ajusta automaticamente quando os ícones
 entram, saem ou ficam ocultos. Os menus nativos dos aplicativos são preservados.
+Cada linha fica centralizada, sem reservar espaço para ícones ausentes, e a
+área da bandeja desaparece quando não há ícones visíveis.
 Para desativá-la, use `EMWM_DESKTOP_TRAY=0` em `session.conf`.
 O executável `xmtray` continua disponível para uso avulso, mas a sessão não
 abre uma janela de bandeja separada.

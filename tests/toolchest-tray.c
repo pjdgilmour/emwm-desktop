@@ -58,11 +58,14 @@ static int height(Widget w) {
     return h;
 }
 static void grid(Window *icons, int count) {
-    XWindowAttributes first, attrs;
+    XWindowAttributes first, attrs, host;
     XGetWindowAttributes(client, parent(icons[0]), &first);
+    XGetWindowAttributes(client, parent(parent(icons[0])), &host);
     for (int i = 0; i < count; ++i) {
+        int row_count = count - (i / 4)*4;
+        if (row_count > 4) row_count = 4;
         XGetWindowAttributes(client, parent(icons[i]), &attrs);
-        assert(attrs.x == first.x + (i % 4)*28);
+        assert(attrs.x == (host.width - (row_count*24 + (row_count-1)*4))/2 + (i % 4)*28);
         assert(attrs.y == first.y + (i / 4)*28);
         XGetWindowAttributes(client, icons[i], &attrs);
         assert(attrs.width == 24 && attrs.height == 24 && attrs.map_state == IsViewable);
@@ -95,7 +98,18 @@ int main(int argc, char **argv) {
         return 0;
     }
     assert(owner != None);
-    for (int i = 0; i < 4; ++i) icons[i] = add_icon(i == 1);
+    int empty_height = height(wshell);
+    icons[0] = add_icon(0);
+    grid(icons, 1);
+    XGetWindowAttributes(client, parent(parent(icons[0])), &attrs);
+    assert(attrs.height == 30);
+    icons[1] = add_icon(1);
+    grid(icons, 2);
+    host = parent(parent(icons[0]));
+    XGetWindowAttributes(client, host, &attrs);
+    assert(attrs.height == 30);
+    assert(attrs.width < 160);
+    for (int i = 2; i < 4; ++i) icons[i] = add_icon(0);
     grid(icons, 4);
     host = parent(parent(icons[0]));
     ancestor = host;
@@ -133,7 +147,7 @@ int main(int argc, char **argv) {
     assert(height(wshell) == single_height);
     for (int i = 0; i < 4; ++i) mapped(icons[i], 0);
     drain();
-    assert(height(wshell) == single_height);
+    assert(height(wshell) == empty_height);
     for (int i = 0; i < 4; ++i) mapped(icons[i], 1);
     drain(); grid(icons, 4);
     /* Losing the tray selection must never close the Toolchest. */

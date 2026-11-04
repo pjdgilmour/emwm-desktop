@@ -18,7 +18,21 @@
  #include <Xm/Frame.h>
  #include <Xm/DrawingA.h>
  #include <Xm/Protocols.h>
-@@ -23,7 +24,11 @@
+@@ -14,7 +15,13 @@
+ #include <string.h>
+
+ #define MAX_ICONS 128
++#ifdef TRAY_EMBEDDED
++#define PAD 3
++#define MINIMUM_WIDTH 1
++#else
+ #define PAD 6
++#define MINIMUM_WIDTH 160
++#endif
+ struct Icon { Window window, socket; Colormap cmap; Boolean mapped; };
+ static struct Icon icons[MAX_ICONS];
+ static int count;
+@@ -23,7 +30,11 @@
  static XtAppContext app;
  static Window root, owner, focused;
  static Atom selection, opcode, embed, info;
@@ -30,7 +44,13 @@
  static Time timestamp;
  static Pixel background;
  static XColor background_rgb;
-@@ -37,11 +42,14 @@
+@@ -32,16 +43,19 @@
+ static struct TrayResources { int size, spacing, minimum_width; Boolean occupy_all; } res;
+ #define OFF(f) XtOffsetOf(struct TrayResources, f)
+ static XtResource resources[] = {
+-    {"minimumWidth", "MinimumWidth", XtRInt, sizeof(int), OFF(minimum_width), XtRImmediate, (XtPointer)160},
++    {"minimumWidth", "MinimumWidth", XtRInt, sizeof(int), OFF(minimum_width), XtRImmediate, (XtPointer)MINIMUM_WIDTH},
+     {"iconSize", "IconSize", XtRInt, sizeof(int), OFF(size), XtRImmediate, (XtPointer)24},
      {"spacing", "Spacing", XtRInt, sizeof(int), OFF(spacing), XtRImmediate, (XtPointer)4},
      {"occupyAll", "OccupyAll", XtRBoolean, sizeof(Boolean), OFF(occupy_all), XtRImmediate, (XtPointer)True}
  };
@@ -42,17 +62,17 @@
  static String defaults[] = {"XmTray.title: Bandeja", "XmTray.geometry: +8+360", NULL};
 +
 +#endif
- 
+
  static int error_handler(Display *display, XErrorEvent *e) {
      if (trapping) { trapped = e->error_code; return 0; }
-@@ -86,27 +94,52 @@
+@@ -86,27 +100,67 @@
      ev.xconfigure.width = ev.xconfigure.height = res.size;
      XSendEvent(dpy, icons[i].window, False, StructureNotifyMask, &ev);
  }
 -static void layout(void) {
 -    int i, visible = 0, x, width, content;
 +static void position_icons(void) {
-+    int i, slot = 0, visible = 0, columns, content, x;
++    int i, slot = 0, visible = 0, columns, content, x, row_icons;
 +    Dimension width;
      for (i = 0; i < count; ++i) if (icons[i].mapped) ++visible;
 -    content = (visible ? visible : 1)*res.size + (visible > 1 ? visible-1 : 0)*res.spacing;
@@ -77,6 +97,12 @@
              continue;
          }
 -        XMoveResizeWindow(dpy, icons[i].socket, x, PAD, res.size, res.size);
++        /* Center each occupied row, including the incomplete last row. */
++        row_icons = visible - (slot / columns)*columns;
++        if (row_icons > columns) row_icons = columns;
++        content = row_icons*res.size + (row_icons-1)*res.spacing;
++        x = ((int)width-content)/2;
++        if (x < PAD) x = PAD;
 +        XMoveResizeWindow(dpy, icons[i].socket,
 +            x + (slot % columns)*(res.size + res.spacing),
 +            PAD + (slot / columns)*(res.size + res.spacing), res.size, res.size);
@@ -97,8 +123,17 @@
 +    columns = visible ? visible : 1;
 +#endif
 +    rows = visible ? (visible + columns - 1)/columns : 1;
-+    width = 2*PAD + columns*res.size + (columns-1)*res.spacing;
++    /* The tray must not force four empty slots into the Toolchest's width. */
++    i = visible < columns ? visible : columns;
++    if (i < 1) i = 1;
++    width = 2*PAD + i*res.size + (i-1)*res.spacing;
 +    if (width < res.minimum_width) width = res.minimum_width;
++#ifdef TRAY_EMBEDDED
++    /* Managing the frame negotiates the DrawingArea's empty preferred size.
++     * Request our actual icon size afterwards, including for the first icon. */
++    if (visible) XtManageChild(frame);
++    else XtUnmanageChild(frame);
++#endif
 +    XtVaSetValues(area, XmNwidth, width,
 +        XmNheight, 2*PAD + rows*res.size + (rows-1)*res.spacing, NULL);
 +    position_icons();
@@ -109,7 +144,7 @@
  }
  static void remove_icon(int i, Boolean detach) {
      struct Icon icon = icons[i];
-@@ -184,7 +217,14 @@
+@@ -184,7 +238,14 @@
      (void)w; (void)data; (void)dispatch;
      switch (ev->type) {
      case SelectionClear:
@@ -125,7 +160,7 @@
          break;
      case ClientMessage:
          if (ev->xclient.format != 32) break;
-@@ -226,45 +266,11 @@
+@@ -226,45 +287,11 @@
          break;
      }
  }
@@ -172,7 +207,7 @@
      dpy = XtDisplay(shell); screen = XScreenNumberOfScreen(XtScreen(shell));
      root = RootWindow(dpy, screen);
      previous_error = XSetErrorHandler(error_handler);
-@@ -285,24 +291,19 @@
+@@ -285,24 +312,19 @@
      value = res.size; property(owner, atom("_NET_SYSTEM_TRAY_ICON_SIZE"), XA_CARDINAL, &value, 1);
      XGrabServer(dpy);
      if (XGetSelectionOwner(dpy, selection) != None) {
@@ -206,7 +241,7 @@
      memset(&event, 0, sizeof(event));
      event.xclient.type = ClientMessage; event.xclient.window = root;
      event.xclient.message_type = atom("MANAGER"); event.xclient.format = 32;
-@@ -310,11 +311,95 @@
+@@ -310,11 +332,113 @@
      event.xclient.data.l[2] = owner;
      XSendEvent(dpy, root, False, StructureNotifyMask, &event);
      XFlush(dpy);
@@ -223,17 +258,31 @@
 +}
 +
 +#ifdef TRAY_EMBEDDED
++static XtSignalId shutdown_signal;
++static void shutdown_cb(XtPointer data, XtSignalId *id) {
++    (void)data; (void)id;
++    /* Detach foreign icons before the WM sees the Toolchest disappear. */
++    release_tray();
++    XSync(dpy, False);
++    XtDestroyWidget(shell);
++    XCloseDisplay(dpy);
++    exit(0);
++}
++static void shutdown_handler(int sig) {
++    (void)sig;
++    XtNoticeSignal(shutdown_signal);
++}
 +Widget TrayCreate(Widget parent, Widget top) {
 +    shell = top;
 +    app = XtWidgetToApplicationContext(shell);
 +    XtGetSubresources(shell, &res, "tray", "Tray", resources, XtNumber(resources), NULL, 0);
 +    if (res.size < 8 || res.size > 128) res.size = 24;
 +    if (res.spacing < 0 || res.spacing > 64) res.spacing = 4;
-+    if (res.minimum_width < 32 || res.minimum_width > 4096) res.minimum_width = 160;
++    if (res.minimum_width < 1 || res.minimum_width > 4096) res.minimum_width = MINIMUM_WIDTH;
 +    frame = XtVaCreateManagedWidget("trayFrame", xmFrameWidgetClass, parent,
-+        XmNshadowType, XmSHADOW_IN, XmNshadowThickness, 1, NULL);
++        XmNshadowThickness, 0, XmNmarginWidth, 0, XmNmarginHeight, 0, NULL);
 +    area = XtVaCreateManagedWidget("trayIcons", xmDrawingAreaWidgetClass, frame,
-+        XmNwidth, 2*PAD + 4*res.size + 3*res.spacing,
++        XmNwidth, 2*PAD + res.size,
 +        XmNheight, 2*PAD + res.size, XmNmarginWidth, 0, XmNmarginHeight, 0, NULL);
 +    XtAddCallback(area, XmNresizeCallback, resize_cb, NULL);
 +    XtAddEventHandler(area, StructureNotifyMask | SubstructureNotifyMask |
@@ -243,8 +292,12 @@
 +}
 +void TrayStart(void) {
 +    if (!area || !XtIsRealized(area)) return;
-+    if (claim_tray()) layout();
-+    else XtUnmanageChild(frame);
++    if (claim_tray()) {
++        shutdown_signal = XtAppAddSignal(app, shutdown_cb, NULL);
++        signal(SIGTERM, shutdown_handler);
++        signal(SIGINT, shutdown_handler);
++        layout();
++    } else XtUnmanageChild(frame);
 +}
 +#else
 +static void close_cb(Widget w, XtPointer a, XtPointer b) {
@@ -322,7 +375,7 @@
  	char *rc_file;
  	char *hotkey;
 @@ -102,6 +104,8 @@
- 
+
  #define RES_FIELD(f) XtOffsetOf(struct tb_resources,f)
  static XtResource xrdb_resources[]={
 +    { "systemTray", "SystemTray", XmRBoolean, sizeof(Boolean),
@@ -349,7 +402,7 @@
 +	if(app_res.system_tray) TrayStart();
  	if(app_res.occupy_all) set_ws_presence(wshell);
  	set_icon(wshell);
- 
+
 @@ -512,7 +522,7 @@
  						XmProcessTraversal(wswitch, XmTRAVERSE_CURRENT);
  					} else {
@@ -379,7 +432,7 @@
 @@ -860,13 +871,17 @@
  		if(app_res.separators) XtManageChild(wgadsep);
  	}
- 
+
 +    footer = XmVaCreateManagedRowColumn(wgadrc, "status",
 +        XmNorientation, XmVERTICAL, XmNmarginWidth, 0, XmNmarginHeight, 0,
 +        XmNspacing, 3, NULL);
@@ -392,7 +445,7 @@
  	XtSetArg(args[n], XmNmarginHeight, 2); n++;
 -	wdtframe = XmCreateFrame(wgadrc, "dateTimeFrame", args, n);
 +	wdtframe = XmCreateFrame(footer, "dateTimeFrame", args, n);
- 
+
  	n = 0;
  	XtSetArg(args[n], XmNalignment, XmALIGNMENT_CENTER); n++;
 @@ -877,7 +892,12 @@
@@ -408,7 +461,7 @@
 +	if(XtIsManaged(wswitch) || app_res.show_date_time || app_res.system_tray)
  		XtManageChild(wgadrc);
  }
- 
+
 --- a/src/common.mf
 +++ b/src/common.mf
 @@ -5,10 +5,10 @@
@@ -418,7 +471,7 @@
 -toolbox_libs = -lXm -lXt -lX11 $(xdg_libs)
 +toolbox_libs = -lXm -lXt -lXrender -lX11 $(xdg_libs)
  xmsm_libs = -lXm -lXt -lXss -lXrandr -lXinerama -lX11 $(SYSLIBS)
- 
+
 -toolbox_objs = tbmain.o tbparse.o wswitch.o tbxdg.o tbxdgmenu.o
 +toolbox_objs = tbtray.o tbmain.o tbparse.o wswitch.o tbxdg.o tbxdgmenu.o
  xmsm_objs = smmain.o
@@ -426,17 +479,17 @@
  tray_libs = -lXm -lXt -lXrender -lX11
 @@ -19,6 +19,9 @@
  executables = xmsm xmtoolbox xmsession xmtray
- 
+
  all: $(executables) $(app_defaults)
 +
 +tbtray.o: tray.c tray.h
 +	$(CC) $(CPPFLAGS) $(CFLAGS) -DTRAY_EMBEDDED -c tray.c -o $@
- 
+
  tbxdg.o: tbxdg.c tbxdg.h
  	$(CC) $(CPPFLAGS) $(CFLAGS) $(xdg_cflags) -c tbxdg.c -o $@
 @@ -83,4 +86,4 @@
  	-rm .depend
- 
+
  .depend:
 -	$(CC) -MM $(INCDIRS) $(xdg_cflags) $(toolbox_objs:.o=.c) $(xmsm_objs:.o=.c) $(common_objs:.o=.c) $(tray_objs:.o=.c) > $@
 +	$(CC) -MM $(INCDIRS) $(xdg_cflags) $(filter-out tbtray.c,$(toolbox_objs:.o=.c)) $(xmsm_objs:.o=.c) $(common_objs:.o=.c) $(tray_objs:.o=.c) > $@
@@ -451,7 +504,7 @@
 +*systemTray: True
 +*tray.iconSize: 24
 +*tray.spacing: 4
- 
+
  ! Tell the window manager to put the toolbox in all workspaces
  *occupyAllWorkspaces: True
 --- a/tests/run.sh
