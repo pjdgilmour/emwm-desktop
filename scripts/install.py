@@ -177,7 +177,8 @@ def build(args):
                  '--wm', wm / 'src/emwm', '--compositor', compositor / 'emwm-compositor',
                  '--file-manager', pcmanfm / 'src/pcmanfm'])
             run([sys.executable, ROOT / 'tests/desktop-monitors.py',
-                 '--wm', wm / 'src/emwm', '--file-manager', pcmanfm / 'src/pcmanfm'])
+                 '--wm', wm / 'src/emwm', '--file-manager', pcmanfm / 'src/pcmanfm',
+                 '--tellmwm', tell / 'tellmwm'])
             run(['make', 'test-x11'], cwd=utils)
             run(['sh', ROOT / 'tests/run-toolchest-tray.sh', utils])
             env = dict(os.environ, EMWM_BINARY=str(wm / 'src/emwm'))

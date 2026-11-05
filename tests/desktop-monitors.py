@@ -47,10 +47,16 @@ def run(args, work):
         topology = work/'topology'; topology.write_text('2 1')
         subprocess.run(['dbus-update-activation-environment','HOME','DISPLAY','XDG_CONFIG_HOME','XDG_DATA_HOME','XDG_STATE_HOME','XDG_RUNTIME_DIR','GVFS_DISABLE_FUSE'],env=env,check=True)
         launch(['/usr/libexec/gvfsd','--no-fuse'],env)
-        launch([str(args.wm.resolve()),'-xrm','Emwm*interactivePlacement: False','-xrm','Emwm*clientAutoPlace: False'],env)
+        wm_command=[str(args.wm.resolve()),'-xrm','Emwm*interactivePlacement: False',
+                    '-xrm','Emwm*clientAutoPlace: False','-xrm','Emwm*showFeedback: none']
+        wm=launch(wm_command,env)
         time.sleep(.4)
-        fm = launch([str(args.file_manager.resolve()),'--profile=emwm-desktop','--desktop'],
-                    dict(env,LD_PRELOAD=str(shim),EMWM_TEST_TOPOLOGY=str(topology),EMWM_DESKTOP_LAYOUT='1'))
+        if args.compositor:
+            launch([str(args.compositor.resolve()),'--backend',args.backend],env)
+            time.sleep(.4)
+        fm = launch([str(ROOT/'apps/emwm-desktop-icons/emwm-desktop-icons')],
+                    dict(env,LD_PRELOAD=str(shim),EMWM_TEST_TOPOLOGY=str(topology),
+                         PATH=str(args.file_manager.resolve().parent)+os.pathsep+env['PATH']))
         def shot():
             path=work/'screen.png'
             subprocess.run(['import','-window','root',str(path)],env=env,check=True,timeout=5)
@@ -114,6 +120,51 @@ def run(args, work):
         assert (desktop/'Test.txt').read_text()=='fixture\n'
         assert fm.poll() is None, 'file manager restarted or crashed'
         print('PASS: one icon set, live settings, mirrored DnD positions, wallpaper preservation, primary change and hotplug',flush=True)
+        # Different images per monitor, composed as the wallpaper tool does.
+        colors=[((170,40,60),(20,150,90)),((30,60,160),(190,140,20))]
+        for i,(left,right) in enumerate(colors):
+            img=Image.new('RGBA',(1600,600),left)
+            img.paste(right,(800,0,1600,600));img.save(home/f'wallpaper-{i}.png')
+        subprocess.run(['xrdb','-merge'],input=''.join(
+            f'Emwm*ws{i}*backdrop*image: "{home}/wallpaper-{i}.png"\n' for i in range(2)),
+            text=True,env=env,check=True)
+        def check_background(index,label):
+            deadline=time.monotonic()+5
+            while time.monotonic()<deadline:
+                img=shot()
+                if (img.getpixel((500,500)),img.getpixel((1300,500)))==colors[index]:
+                    print('PASS:',label,flush=True);return
+                time.sleep(.1)
+            raise AssertionError(f'{label}: {img.getpixel((500,500))}, {img.getpixel((1300,500))}')
+        for i in (0,1,0):
+            subprocess.run([str(args.tellmwm.resolve()),'setws',f'ws{i}'],env=env,check=True)
+            check_background(i,f'per-monitor wallpaper workspace {i}')
+        # Rebuild the desktop surfaces after changing their icon monitor.
+        def fixed_positions():
+            result={}
+            for path in profile.glob('desktop-items-*.conf'):
+                parser=configparser.RawConfigParser();parser.read(path)
+                result[path.name]={key:dict(parser[key]) for key in parser.sections() if key!='*'}
+            return result
+        positions=fixed_positions()
+        set_pref('TEST-B','right')
+        time.sleep(.7)
+        check_background(0,'wallpaper after desktop rebuild')
+        assert fixed_positions()==positions, 'wallpaper refresh discarded manual icon positions'
+        topology.write_text('1 0')
+        time.sleep(.6)
+        (profile/'desktop-items-1.conf').unlink()
+        topology.write_text('2 0')
+        time.sleep(.6)
+        check_background(0,'wallpaper on a monitor without saved profile')
+        wm.terminate();wm.wait(timeout=5)
+        wm=launch(wm_command,env)
+        time.sleep(.8)
+        check_background(0,'wallpaper after WM restart')
+        # Removing PCManFM restores the WM's configured native backdrop.
+        fm.terminate();fm.wait(timeout=5)
+        time.sleep(.5)
+        check_background(0,'native wallpaper fallback without PCManFM')
     finally:
         for proc in reversed(processes):
             if proc.poll() is None:
@@ -129,6 +180,9 @@ def main():
     parser=argparse.ArgumentParser()
     parser.add_argument('--wm',required=True,type=Path)
     parser.add_argument('--file-manager',required=True,type=Path)
+    parser.add_argument('--tellmwm',type=Path,default=Path('/usr/lib/emwm-desktop/bin/tellmwm'))
+    parser.add_argument('--compositor',type=Path)
+    parser.add_argument('--backend',choices=('glx','xrender'),default='glx')
     parser.add_argument('--private-bus',action='store_true')
     args=parser.parse_args()
     if not args.private_bus:

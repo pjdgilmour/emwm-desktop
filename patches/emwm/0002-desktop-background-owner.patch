@@ -1,0 +1,71 @@
+--- a/src/WmEwmh.h
++++ b/src/WmEwmh.h
+@@ -44,3 +44,5 @@
+ extern void RestackDesktopSurfaces(WmScreenData *screen);
+ extern void PublishCompositorFrame(ClientData *client);
+ extern void NotifyCompositorTransition(ClientData *client, int kind, int phase);
++
++extern Boolean DesktopOwnsBackground(WmScreenData *screen);
+--- a/src/WmEwmh.c
++++ b/src/WmEwmh.c
+@@ -1007,14 +1007,34 @@
+     return found;
+ }
+ 
++Boolean DesktopOwnsBackground(WmScreenData *screen)
++{
++    ClientListEntry *entry;
++    for (entry = screen->clientList; entry; entry = entry->nextSibling)
++        if (entry->type == NORMAL_STATE && entry->pCD->desktopSurface)
++            return True;
++    return False;
++}
++
+ void RestackDesktopSurfaces(WmScreenData *screen)
+ {
+     ClientListEntry *entry;
+     for (entry = screen->clientList; entry; entry = entry->nextSibling)
+         if (entry->type == NORMAL_STATE && entry->pCD->desktopSurface)
+             XLowerWindow(DISPLAY, entry->pCD->clientFrameWin);
+-    /* Workspace backdrops stay beneath the desktop, including after switching. */
+-    if (screen->lastBackdropWin) XLowerWindow(DISPLAY, screen->lastBackdropWin);
++    /* There is only one visible background provider. Restore the native
++     * backdrop when the final desktop surface leaves (including a crash). */
++    if (DesktopOwnsBackground(screen)) {
++        int i;
++        for (i = 0; i < screen->numWorkspaces; ++i)
++            if (screen->pWS[i].backdrop.window)
++                XUnmapWindow(DISPLAY, screen->pWS[i].backdrop.window);
++    } else if (screen->pActiveWS && screen->pActiveWS->backdrop.window) {
++        Window backdrop = screen->pActiveWS->backdrop.window;
++        XLowerWindow(DISPLAY, backdrop);
++        XMapWindow(DISPLAY, backdrop);
++        screen->lastBackdropWin = backdrop;
++    }
+ }
+ 
+ void PublishCompositorFrame(ClientData *client)
+--- a/src/WmBackdrop.c
++++ b/src/WmBackdrop.c
+@@ -73,6 +73,11 @@
+  *************************************<->***********************************/
+ void ChangeBackdrop(WmWorkspaceData *pWS )
+ {
++    if (DesktopOwnsBackground(pWS->pSD)) {
++        pWS->pSD->lastBackdropWin = pWS->backdrop.window;
++        RestackDesktopSurfaces(pWS->pSD);
++        return;
++    }
+     if (pWS->backdrop.window) 
+     {
+ 	if (pWS->backdrop.window == pWS->pSD->lastBackdropWin)
+--- a/src/WmWinList.c
++++ b/src/WmWinList.c
+@@ -491,6 +491,7 @@
+     }
+ 	UpdateEwmhClientList(pSD);
+ 
++    if (pCD->desktopSurface) RestackDesktopSurfaces(pSD);
+ } /* END OF FUNCTION DeleteClientFromList */
+ 
+ 

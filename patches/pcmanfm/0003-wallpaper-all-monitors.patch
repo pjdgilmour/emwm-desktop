@@ -1,0 +1,80 @@
+--- a/src/desktop.c
++++ b/src/desktop.c
+@@ -121,6 +121,9 @@
+ static GFileMonitor *emwm_settings_monitor = NULL;
+ static guint emwm_refresh_id = 0;
+ static gint emwm_on_screen = -1;
++static gboolean emwm_have_wallpaper = FALSE;
++static char *emwm_wallpaper = NULL;
++static FmWallpaperMode emwm_wallpaper_mode = FM_WP_COLOR;
+ static void emwm_queue_refresh(void);
+ 
+ static gint emwm_icon_monitor(GdkScreen *screen)
+@@ -2426,6 +2429,13 @@
+     gdk_window_set_back_pixmap(window, cache->bg, FALSE);
+ #endif
+ 
++    if (emwm_layout)
++    {
++        if (pix) g_object_unref(pix);
++        gdk_window_invalidate_rect(window, NULL, TRUE);
++        return;
++    }
++
+     /* set root map here */
+     xdisplay = GDK_WINDOW_XDISPLAY(root);
+     xroot = RootWindow(xdisplay, screen_num);
+@@ -6057,6 +6067,19 @@
+         }
+     }
+ 
++    /* Keep the current workspace image after RandR/settings rebuilds, even
++     * when a newly attached monitor has no profile or an old cached choice. */
++    if (emwm_layout && emwm_have_wallpaper)
++        for (i = 0; i < n_screens; i++)
++            if (desktops[i]->monitor >= 0)
++            {
++                g_free(desktops[i]->conf.wallpaper);
++                desktops[i]->conf.wallpaper = g_strdup(emwm_wallpaper);
++                desktops[i]->conf.wallpaper_mode = emwm_wallpaper_mode;
++                fm_desktop_wallpaper_changed(desktops[i]);
++                break;
++            }
++
+     icon_theme_changed = g_signal_connect(gtk_icon_theme_get_default(), "changed", G_CALLBACK(on_icon_theme_changed), NULL);
+ 
+     hand_cursor = gdk_cursor_new(GDK_HAND2);
+@@ -6187,6 +6210,33 @@
+ 
+ void fm_desktop_wallpaper_changed(FmDesktop *desktop)
+ {
++    int i;
++    if (emwm_layout)
++    {
++        char *current = g_strdup(desktop->conf.wallpaper);
++        g_free(emwm_wallpaper);
++        emwm_wallpaper = current;
++        emwm_wallpaper_mode = desktop->conf.wallpaper_mode;
++        emwm_have_wallpaper = TRUE;
++        /* The controller supplies one screen-sized composition per workspace.
++         * Each monitor displays its own crop, including background-only views.
++         * PCManFM's upstream CLI otherwise changes monitor zero only. */
++        for (i = 0; i < n_screens; i++)
++        {
++            FmDesktop *target = desktops[i];
++            if (target->monitor < 0) continue;
++            if (target != desktop)
++            {
++                g_free(target->conf.wallpaper);
++                target->conf.wallpaper = g_strdup(desktop->conf.wallpaper);
++                target->conf.wallpaper_mode = desktop->conf.wallpaper_mode;
++            }
++            target->conf.wallpaper_common = TRUE;
++            queue_config_save(target);
++            update_background(target, 0);
++        }
++        return;
++    }
+     queue_config_save(desktop);
+     update_background(desktop, 0);
+ }

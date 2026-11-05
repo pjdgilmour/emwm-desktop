@@ -125,6 +125,15 @@ avaliados com os drivers e monitores reais. Consulte
 
 ### Arquivos, ícones e lixeira no desktop
 
+Com a área ativa, o PCManFM desenha o fundo em **todos** os monitores, usando
+o recorte correspondente da imagem composta pela ferramenta de papel de parede.
+Isso inclui os monitores sem ícones. O EMWM oculta seus backdrops nativos
+enquanto as superfícies do desktop estão presentes e volta a exibi-los quando
+elas são encerradas. A mesma configuração por workspace continua sendo usada
+pelos dois caminhos; não é preciso apagar ou desabilitar os fundos salvos.
+Os pixmaps recortados de cada monitor não são publicados como fundo global do
+X11, evitando deslocamentos e referências a pixmaps liberados.
+
 Em **Aparência → Área de trabalho** (ou `emwm-appearance --desktop`), escolha o
 **Monitor dos ícones** e a ancoragem **Esquerda/Direita**. Por padrão, arquivos,
 lixeira e volumes aparecem somente no principal informado pelo X11/driver.
