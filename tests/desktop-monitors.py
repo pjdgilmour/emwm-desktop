@@ -97,7 +97,7 @@ def run(args, work):
             check_icon(1370,300,(0,0,800,600),'right drag')
         finally: x.XCloseDisplay(display)
         time.sleep(.4)
-        old=(profile/'desktop-items-1.conf').read_text()
+        old=(profile/'desktop-output-TEST-B.conf').read_text()
         assert '[Test.txt]' in old, old
         set_pref('primary','left')
         check_icon(1030,300,(0,0,800,600),'mirror manual position')
@@ -106,10 +106,23 @@ def run(args, work):
         # Updating wallpaper must not discard the inactive monitor's positions.
         subprocess.run([str(args.file_manager.resolve()),'--profile=emwm-desktop','--wallpaper-mode=color'],env=env,check=True)
         time.sleep(.4)
-        saved=(profile/'desktop-items-1.conf').read_text()
+        saved=(profile/'desktop-output-TEST-B.conf').read_text()
         assert '[Test.txt]' in saved, saved
         set_pref('TEST-B','right')
         check_icon(1370,300,(0,0,800,600),'restore manual position')
+        # Removing the LEFT output changes B's GDK index from one to zero.
+        # The framebuffer still includes the unused 800-pixel gap on the left.
+        topology.write_text('1 0 1 800')
+        check_icon(1370,300,(0,0,800,600),'left disconnected with nonzero origin')
+        fm.terminate();fm.wait(timeout=5)
+        fm = launch([str(ROOT/'apps/emwm-desktop-icons/emwm-desktop-icons')],
+                    dict(env,LD_PRELOAD=str(shim),EMWM_TEST_TOPOLOGY=str(topology),
+                         PATH=str(args.file_manager.resolve().parent)+os.pathsep+env['PATH']))
+        check_icon(1370,300,(0,0,800,600),'login with left output absent')
+        topology.write_text('1 0 1 0')
+        check_icon(570,300,(800,0,1600,600),'remaining output moved to origin')
+        topology.write_text('2 1')
+        check_icon(1370,300,(0,0,800,600),'original arrangement restored')
         topology.write_text('1 0')
         check_icon(740,130,(800,0,1600,600),'disconnect fallback')
         topology.write_text('2 1')
@@ -139,10 +152,20 @@ def run(args, work):
         for i in (0,1,0):
             subprocess.run([str(args.tellmwm.resolve()),'setws',f'ws{i}'],env=env,check=True)
             check_background(i,f'per-monitor wallpaper workspace {i}')
+        topology.write_text('1 0 1 800')
+        deadline=time.monotonic()+5
+        while time.monotonic()<deadline:
+            if shot().getpixel((1300,500))==colors[0][1]: break
+            time.sleep(.1)
+        else: raise AssertionError('wallpaper cropped using truncated GDK screen width')
+        print('PASS: wallpaper crop with left output absent and nonzero origin',flush=True)
+        topology.write_text('2 0')
+        time.sleep(.7)
+        check_background(0,'wallpaper after reconnect')
         # Rebuild the desktop surfaces after changing their icon monitor.
         def fixed_positions():
             result={}
-            for path in profile.glob('desktop-items-*.conf'):
+            for path in profile.glob('desktop-output-*.conf'):
                 parser=configparser.RawConfigParser();parser.read(path)
                 result[path.name]={key:dict(parser[key]) for key in parser.sections() if key!='*'}
             return result
@@ -153,7 +176,7 @@ def run(args, work):
         assert fixed_positions()==positions, 'wallpaper refresh discarded manual icon positions'
         topology.write_text('1 0')
         time.sleep(.6)
-        (profile/'desktop-items-1.conf').unlink()
+        (profile/'desktop-output-TEST-B.conf').unlink()
         topology.write_text('2 0')
         time.sleep(.6)
         check_background(0,'wallpaper on a monitor without saved profile')
@@ -161,6 +184,23 @@ def run(args, work):
         wm=launch(wm_command,env)
         time.sleep(.8)
         check_background(0,'wallpaper after WM restart')
+        # A temporarily absent extra item must retain its manual position while
+        # wallpaper changes save the profile; reconnect/load adds it later.
+        fm.terminate();fm.wait(timeout=5)
+        named=profile/'desktop-output-TEST-B.conf'
+        parser=configparser.RawConfigParser();parser.read(named)
+        parser['*']['show_trash']='0'
+        parser['trash:///']={'x':'300','y':'40'}
+        with named.open('w') as stream:parser.write(stream)
+        fm=launch([str(ROOT/'apps/emwm-desktop-icons/emwm-desktop-icons')],
+                  dict(env,LD_PRELOAD=str(shim),EMWM_TEST_TOPOLOGY=str(topology),
+                       PATH=str(args.file_manager.resolve().parent)+os.pathsep+env['PATH']))
+        time.sleep(1)
+        subprocess.run([str(args.file_manager.resolve()),'--profile=emwm-desktop','--wallpaper-mode=color'],env=env,check=True)
+        time.sleep(.5)
+        parser=configparser.RawConfigParser();parser.read(named)
+        assert dict(parser['trash:///'])=={'x':'300','y':'40'},'absent trash position erased'
+        print('PASS: temporarily absent trash retains its manual position',flush=True)
         # Removing PCManFM restores the WM's configured native backdrop.
         fm.terminate();fm.wait(timeout=5)
         time.sleep(.5)

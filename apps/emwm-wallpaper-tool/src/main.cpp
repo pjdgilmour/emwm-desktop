@@ -512,7 +512,7 @@ private:
         resolution_label_.set_xalign(0.0f);
         root_box_.pack_start(resolution_label_, Gtk::PACK_SHRINK);
         auto* note = Gtk::make_managed<Gtk::Label>(
-            "Escolha uma imagem única ou configure fundos por monitor. Após mudar os monitores, aplique novamente.");
+            "Escolha uma imagem única ou configure fundos por monitor. O desktop adapta os fundos ao conectar ou desligar monitores.");
         note->set_xalign(0.0f);
         note->set_line_wrap(true);
         root_box_.pack_start(*note, Gtk::PACK_SHRINK);
@@ -812,6 +812,42 @@ private:
 } // namespace
 
 int main(int argc, char* argv[]) {
+    if (argc == 2 && std::string(argv[1]) == "--refresh-layout") {
+        try {
+            const fs::path home = getenvRequired("HOME");
+            const auto selections = backdrops::readSelections(home);
+            const auto saved = backdrops::readSaved(home);
+            const auto layout = wallpaper::detectLayout();
+            std::vector<int> workspaces;
+            std::vector<fs::path> outputs;
+            std::vector<backdrops::Selection> choices;
+            std::map<std::string, fs::path> prepared;
+            for (int i = 0; i < backdrops::workspaceCount; ++i) {
+                if (!selections[i]) continue;
+                const auto& selected = *selections[i];
+                std::ostringstream key;
+                key << std::quoted(selected.source.string()) << selected.mode << selected.color;
+                for (const auto& monitor : selected.monitors)
+                    key << std::quoted(monitor.name) << std::quoted(monitor.source.string())
+                        << monitor.mode << monitor.color << monitor.rotation;
+                auto found = prepared.find(key.str());
+                if (found == prepared.end())
+                    found = prepared.emplace(key.str(), wallpaper::prepare(home, selected, layout)).first;
+                if (saved[i] && *saved[i] == found->second) continue;
+                workspaces.push_back(i); outputs.push_back(found->second); choices.push_back(selected);
+            }
+            if (!workspaces.empty()) {
+                const auto resources = backdrops::save(home, workspaces, outputs, choices);
+                const auto warning = mergeBackdropResources(resources);
+                if (!warning.empty()) throw std::runtime_error(warning);
+                applyWithTellmwm(workspaces, outputs);
+            }
+            return 0;
+        } catch (const std::exception& ex) {
+            std::cerr << "Atualização dos fundos: " << ex.what() << '\n';
+            return 1;
+        }
+    }
     if (argc == 2 && std::string(argv[1]) == "--migrate") {
         try {
             const auto resources = backdrops::save(getenvRequired("HOME"), {}, {});

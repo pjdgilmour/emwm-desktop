@@ -1,0 +1,171 @@
+--- a/src/desktop.c
++++ b/src/desktop.c
+@@ -217,6 +217,35 @@
+         return NULL;
+     dir = pcmanfm_get_profile_dir(create_dir);
+     path = g_strdup_printf("%s/desktop-items-%u.conf", dir, i);
++    if (emwm_layout && desktop->monitor >= 0)
++    {
++        /* Cache the identity on this surface: GDK indices already refer to the
++         * new topology when old surfaces are finalized after a RandR event. */
++        const char *cached = g_object_get_data(G_OBJECT(desktop), "emwm-profile");
++        if (!cached)
++        {
++            GdkScreen *screen = gtk_widget_get_screen(GTK_WIDGET(desktop));
++            char *name = gdk_screen_get_monitor_plug_name(screen, desktop->monitor);
++            if (name && *name)
++            {
++                char *escaped = g_uri_escape_string(name, NULL, FALSE);
++                char *named = g_strdup_printf("%s/desktop-output-%s.conf", dir, escaped);
++                if (!g_file_test(named, G_FILE_TEST_EXISTS))
++                {
++                    char *contents = NULL; gsize size;
++                    /* Keep the legacy file intact as the migration backup. */
++                    if (g_file_get_contents(path, &contents, &size, NULL))
++                        g_file_set_contents(named, contents, size, NULL);
++                    g_free(contents);
++                }
++                g_object_set_data_full(G_OBJECT(desktop), "emwm-profile", named, g_free);
++                cached = named;
++                g_free(escaped);
++            }
++            g_free(name);
++        }
++        if (cached) { g_free(path); path = g_strdup(cached); }
++    }
+     g_free(dir);
+     return path;
+ }
+@@ -347,6 +376,9 @@
+                 if (emwm_layout)
+                 {
+                     gboolean was_right = g_key_file_get_boolean(kf, "*", "emwm_anchor_right", NULL);
++                    gint old_width = g_key_file_get_integer(kf, "*", "emwm_workarea_width", NULL);
++                    if (was_right && old_width > 0)
++                        item->area.x += desktop->working_area.width - old_width;
+                     if (was_right != emwm_right)
+                         item->area.x = 2 * desktop->working_area.x + desktop->working_area.width
+                                      - item->area.x - desktop->cell_w;
+@@ -439,7 +471,8 @@
+     {
+         fm_app_config_save_desktop_config(buf, "*", &desktop->conf);
+         if (emwm_layout && desktop->model)
+-            g_string_append_printf(buf, "emwm_anchor_right=%s\n", emwm_right ? "true" : "false");
++            g_string_append_printf(buf, "emwm_anchor_right=%s\nemwm_workarea_width=%d\n",
++                                   emwm_right ? "true" : "false", desktop->working_area.width);
+         g_string_append_c(buf, '\n');
+     }
+ 
+@@ -452,7 +485,9 @@
+         {
+             gboolean right = g_key_file_get_boolean(saved, "*", "emwm_anchor_right", NULL);
+             char *positions;
+-            g_string_append_printf(buf, "emwm_anchor_right=%s\n\n", right ? "true" : "false");
++            g_string_append_printf(buf, "emwm_anchor_right=%s\nemwm_workarea_width=%d\n\n",
++                                   right ? "true" : "false",
++                                   g_key_file_get_integer(saved, "*", "emwm_workarea_width", NULL));
+             g_key_file_remove_group(saved, "*", NULL);
+             positions = g_key_file_to_data(saved, NULL, NULL);
+             g_string_append(buf, positions);
+@@ -496,6 +531,47 @@
+         g_string_append_printf(buf, "x=%d\n"
+                                     "y=%d\n\n",
+                                     item->area.x, item->area.y);
++    }
++    /* Extra items (trash and volumes) arrive asynchronously after a surface
++     * rebuild. Saving a wallpaper before they arrive must not erase positions.
++     * A present, non-fixed item is deliberately automatic and is not restored. */
++    if (emwm_layout && desktop->model)
++    {
++        GKeyFile *saved = g_key_file_new(), *current = g_key_file_new();
++        if (g_key_file_load_from_file(saved, path, 0, NULL) &&
++            g_key_file_load_from_data(current, buf->str, buf->len, 0, NULL))
++        {
++            char **groups = g_key_file_get_groups(saved, NULL), **group;
++            FmFolder *folder = fm_folder_model_get_folder(desktop->model);
++            for (group = groups; *group; ++group)
++            {
++                GtkTreeIter iter;
++                gboolean present = FALSE;
++                if (!strcmp(*group, "*") || g_key_file_has_group(current, *group)) continue;
++                if (!strstr(*group, "://") && fm_folder_is_loaded(folder)) continue;
++                if (gtk_tree_model_get_iter_first(GTK_TREE_MODEL(desktop->model), &iter)) do
++                {
++                    FmDesktopItem *item = fm_folder_model_get_item_userdata(desktop->model, &iter);
++                    if (item && !g_strcmp0(fm_file_info_get_name(item->fi), *group))
++                    { present = TRUE; break; }
++                } while (gtk_tree_model_iter_next(GTK_TREE_MODEL(desktop->model), &iter));
++                if (!present)
++                {
++                    gint x = g_key_file_get_integer(saved, *group, "x", NULL);
++                    gint width = g_key_file_get_integer(saved, "*", "emwm_workarea_width", NULL);
++                    gboolean right = g_key_file_get_boolean(saved, "*", "emwm_anchor_right", NULL);
++                    if (right && width > 0) x += desktop->working_area.width - width;
++                    if (right != emwm_right)
++                        x = 2 * desktop->working_area.x + desktop->working_area.width - x - desktop->cell_w;
++                    g_key_file_set_integer(current, *group, "x", x);
++                    g_key_file_set_integer(current, *group, "y", g_key_file_get_integer(saved, *group, "y", NULL));
++                }
++            }
++            g_strfreev(groups);
++            char *merged = g_key_file_to_data(current, NULL, NULL);
++            g_string_assign(buf, merged); g_free(merged);
++        }
++        g_key_file_free(saved); g_key_file_free(current);
+     }
+     g_file_set_contents(path, buf->str, buf->len, NULL);
+     g_free(path);
+@@ -2345,8 +2421,18 @@
+             gdk_screen_get_monitor_geometry(screen, desktop->monitor, &geom);
+             if (desktop->conf.wallpaper_mode == FM_WP_SCREEN)
+             {
+-                dest_w = gdk_screen_get_width(screen);
+-                dest_h = gdk_screen_get_height(screen);
++                XWindowAttributes root_attributes;
++                if (emwm_layout && XGetWindowAttributes(GDK_WINDOW_XDISPLAY(root),
++                        GDK_WINDOW_XID(root), &root_attributes))
++                {
++                    dest_w = root_attributes.width;
++                    dest_h = root_attributes.height;
++                }
++                else
++                {
++                    dest_w = gdk_screen_get_width(screen);
++                    dest_h = gdk_screen_get_height(screen);
++                }
+                 x = -geom.x;
+                 y = -geom.y;
+             }
+@@ -2588,9 +2674,30 @@
+     GdkScreen* screen = gtk_widget_get_screen((GtkWidget*)desktop);
+     GdkRectangle geom;
+ #if GTK_CHECK_VERSION(3, 4, 0)
+-    gdk_screen_get_monitor_workarea(screen, desktop->monitor, &desktop->working_area);
++    gdk_screen_get_monitor_geometry(screen, desktop->monitor, &geom);
++    if (emwm_layout)
++    {
++        /* GTK may derive screen width from active monitor sizes, omitting a
++         * nonzero origin. Intersect the EWMH work area with the actual monitor
++         * ourselves instead of truncating it at that incorrect screen width. */
++        GdkWindow *root = gdk_screen_get_root_window(screen);
++        Atom type; int format; unsigned long count, after;
++        unsigned char *data = NULL;
++        desktop->working_area = geom;
++        if (XGetWindowProperty(GDK_WINDOW_XDISPLAY(root), GDK_WINDOW_XID(root),
++                XA_NET_WORKAREA, desktop->cur_desktop * 4, 4, False, XA_CARDINAL,
++                &type, &format, &count, &after, &data) == Success &&
++                type == XA_CARDINAL && format == 32 && count == 4)
++        {
++            unsigned long *v = (unsigned long *)data;
++            GdkRectangle area = {(gint)v[0], (gint)v[1], (gint)v[2], (gint)v[3]}, clipped;
++            if (gdk_rectangle_intersect(&geom, &area, &clipped))
++                desktop->working_area = clipped;
++        }
++        if (data) XFree(data);
++    }
++    else gdk_screen_get_monitor_workarea(screen, desktop->monitor, &desktop->working_area);
+     /* we need working area coordinates within the monitor not the screen */
+-    gdk_screen_get_monitor_geometry(screen, desktop->monitor, &geom);
+     desktop->working_area.x -= geom.x;
+     desktop->working_area.y -= geom.y;
+ #else

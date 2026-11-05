@@ -4,7 +4,7 @@ Aplicativo gráfico em C++17 com GTKmm 3 para configurar papéis de parede dos q
 
 Ao clicar em **Aplicar**, a ferramenta salva as escolhas em `~/.config/emwm/backdrops.resources`, inclui esse arquivo em `~/.Xresources` e aplica a imagem imediatamente com `tellmwm`. Também atualiza o banco de recursos do servidor X com `xrdb -merge`, para preservar a escolha ao reiniciar apenas o WM.
 
-O EMWM restaura as imagens diretamente de seus recursos nativos no início da sessão. Não há script de reaplicação, espera com `sleep`, serviço adicional ou mudança no código do WM. Alterar apenas um workspace preserva os demais.
+O EMWM restaura as imagens diretamente de seus recursos nativos no início da sessão. Com a área ativa do EMWM Desktop, o controlador recompõe os fundos no login e após eventos de mudança dos monitores, usando as escolhas salvas por saída. Alterar apenas um workspace preserva os demais.
 
 ## Dependências e compilação
 
@@ -44,7 +44,7 @@ Para escolher fundos diferentes, clique em **Configurar fundo por monitor…** n
 
 Os monitores ativos são identificados pelo nome da saída (por exemplo, HDMI-1 e DP-1). A resolução, posição e rotação são detectadas via RandR. A opção **Automática** respeita as dimensões já orientadas pelo X11, inclusive monitores verticais, sem girar a imagem duas vezes. Também é possível girar a imagem 90°, 180° ou 270° dentro de cada monitor. Isso não altera a orientação física/configuração da saída no X11.
 
-A ferramenta compõe um único PNG com os fundos nas posições de cada monitor, compatível com o mecanismo nativo do EMWM. Monitores espelhados compartilham pixels e são apresentados como uma única área. Escolhas de monitores desconectados são conservadas. Uma saída nova usa a imagem geral como alternativa, quando definida; caso contrário, a ferramenta pede uma imagem para ela. Após mudar a resolução, rotação ou disposição dos monitores, abra a configuração por monitor e clique em **Aplicar** novamente.
+A ferramenta compõe um único PNG com os fundos nas posições de cada monitor, compatível com o mecanismo nativo do EMWM. Monitores espelhados compartilham pixels e são apresentados como uma única área. Escolhas de monitores desconectados são conservadas. Uma saída nova usa a imagem geral como alternativa, quando definida; caso contrário, a ferramenta pede uma imagem para ela. Na área ativa do EMWM Desktop, mudanças de resolução, rotação ou disposição dos monitores provocam uma recomposição automática. O comando `emwm-wallpaper-tool --refresh-layout` também executa essa atualização sem abrir a interface; escolhas de saídas desconectadas são preservadas. Em instalações independentes sem esse controlador, aplique novamente pela ferramenta.
 
 No login seguinte, a sessão precisa carregar `~/.Xresources` **antes** de iniciar o EMWM. O `xmsession` do emwm-utils já faz isso; nesta instalação, a entrada de sessão usa `Exec=/usr/bin/xmsession`.
 

@@ -19,7 +19,7 @@ ${CC:-cc} ${CFLAGS:--O2 -Wall} -DTRAY_EMBEDDED -I"$utils/src" \
     "$project/tests/toolchest-tray.c" "$utils/src/tray.c" \
     "$utils/src/tbparse.c" "$utils/src/common.c" "$utils/src/wswitch.c" \
     "$utils/src/tbxdg.c" "$utils/src/tbxdgmenu.c" \
-    -o "$work/test-tray" -lXm -lXt -lXrender -lX11 -lXtst \
+    -o "$work/test-tray" -lXm -lXt -lXrender -lXrandr -lX11 -lXtst \
     $(pkg-config --libs garcon-1 gio-unix-2.0)
 Xvfb -displayfd 3 -screen 0 1024x768x24 -nolisten tcp -noreset \
     3>"$work/display" >"$work/x.log" 2>&1 &

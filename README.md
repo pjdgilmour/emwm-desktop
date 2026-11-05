@@ -143,6 +143,10 @@ escolhida for desconectada, os ícones passam ao principal disponível (ou prime
 ativo) e voltam à saída escolhida quando ela for reconectada. Os demais monitores
 mantêm o fundo de tela. A preferência é salva em
 `~/.config/emwm-desktop/desktop.conf`, respeitando `XDG_CONFIG_HOME`.
+As posições manuais são associadas ao nome da saída, independentemente da ordem
+em que os monitores são detectados. Os perfis antigos por número são mantidos
+como backup durante a migração. A área útil usa a geometria real do X11, inclusive
+quando o monitor restante tem uma origem diferente de zero.
 
 A aplicação é imediata, após terminar qualquer arrasto em andamento, sem
 reiniciar a sessão ou fechar janelas do gerenciador de arquivos. A troca de lado
@@ -189,8 +193,11 @@ Em **Configurar fundo por monitor…**, escolha imagens e modos independentes pa
 cada saída. A orientação vertical é detectada via RandR; há também giro manual
 da imagem por monitor.
 As cópias preparadas ficam em `~/.config/emwm/wallpapers/` e são restauradas pelo
-EMWM no login. Após mudar a resolução ou a disposição dos monitores, aplique o
-fundo novamente na ferramenta.
+EMWM no login. Com a área de trabalho ativa, os fundos são recompostos ao entrar
+na sessão e após mudanças nos monitores, preservando as escolhas das saídas
+desconectadas. Mantenha as imagens originais disponíveis para essa recomposição.
+O Toolchest também retorna a um monitor visível se sua posição ficar fora da
+área ativa, sem mover as demais janelas ou alterar a configuração do driver.
 
 A bandeja X11/XEmbed fica integrada ao Toolchest, abaixo da data/hora, com
 quatro ícones por linha. A altura se ajusta automaticamente quando os ícones

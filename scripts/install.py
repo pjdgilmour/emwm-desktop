@@ -178,7 +178,11 @@ def build(args):
                  '--file-manager', pcmanfm / 'src/pcmanfm'])
             run([sys.executable, ROOT / 'tests/desktop-monitors.py',
                  '--wm', wm / 'src/emwm', '--file-manager', pcmanfm / 'src/pcmanfm',
-                 '--tellmwm', tell / 'tellmwm'])
+                 '--tellmwm', tell / 'tellmwm'],
+                env=dict(os.environ, PATH=str(wallpaper) + os.pathsep + os.environ['PATH']))
+            run([sys.executable, ROOT / 'tests/monitor-layout.py',
+                 '--wm', wm / 'src/emwm', '--wallpaper', wallpaper / 'emwm-wallpaper-tool',
+                 '--toolbox', utils / 'src/xmtoolbox'])
             run([sys.executable, ROOT / 'tests/title-gradient.py',
                  '--wm', wm / 'src/emwm', '--compositor', compositor / 'emwm-compositor'])
             run(['make', 'test-x11'], cwd=utils)

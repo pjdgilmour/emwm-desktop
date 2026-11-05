@@ -1,0 +1,124 @@
+--- a/src/tbmain.c
++++ b/src/tbmain.c
+@@ -47,6 +47,7 @@
+ #include <Xm/MessageB.h>
+ #include <Xm/MwmUtil.h>
+ #include <X11/cursorfont.h>
++#include <X11/extensions/Xrandr.h>
+ #include <errno.h>
+ #include "tbparse.h"
+ #include "tray.h"
+@@ -54,6 +55,10 @@
+ #include "common.h"
+ #include "smglobal.h"
+ #include "wswitch.h"
++
++static int randr_event = -1;
++static XtIntervalId visible_timer = 0;
++static void ensure_visible(XtPointer, XtIntervalId *);
+ 
+ /* Forward declarations */
+ static char* find_rc_file(void);
+@@ -335,6 +340,15 @@
+ 		root_event_mask |= KeyPressMask;
+ 
+ 	XtMapWidget(wshell);
++    {
++        int error, major = 1, minor = 5;
++        if (XRRQueryExtension(dpy, &randr_event, &error) &&
++            XRRQueryVersion(dpy, &major, &minor) && (major > 1 || minor >= 5)) {
++            XRRSelectInput(dpy, root_window, RRScreenChangeNotifyMask |
++                RRCrtcChangeNotifyMask | RROutputChangeNotifyMask);
++            visible_timer = XtAppAddTimeOut(app_context, 800, ensure_visible, NULL);
++        } else randr_event = -1;
++    }
+ 
+ 	if(XtIsManaged(wswitch))
+ 		XmProcessTraversal(wswitch, XmTRAVERSE_CURRENT);
+@@ -346,6 +360,12 @@
+ 	for(;;) {
+ 		XEvent evt;
+ 		XtAppNextEvent(app_context, &evt);
++        if (randr_event >= 0 && (evt.type == randr_event + RRScreenChangeNotify ||
++                                evt.type == randr_event + RRNotify)) {
++            if (visible_timer) XtRemoveTimeOut(visible_timer);
++            visible_timer = XtAppAddTimeOut(app_context, 400, ensure_visible, NULL);
++            continue;
++        }
+ 		if(evt.xany.window == root_window)
+ 			handle_root_event(&evt);
+ 		else
+@@ -353,6 +373,62 @@
+ 	}
+ 	
+ 	return 0;
++}
++
++/* Keep the Toolchest reachable after login and RandR changes, including a
++ * framebuffer with an unused gap at its origin. Do not reposition other apps. */
++static void ensure_visible(XtPointer unused, XtIntervalId *id)
++{
++    Display *dpy = XtDisplay(wshell);
++    Window client = XtWindow(wshell), root = RootWindowOfScreen(XtScreen(wshell));
++    Window frame = client, r, parent, *children, child;
++    unsigned int count;
++    XWindowAttributes attr;
++    int cx, cy, n, best = 0, area_best = -1, i, nx, ny;
++    XRRMonitorInfo *monitors;
++    visible_timer = 0;
++    if (!XGetWindowAttributes(dpy, client, &attr) || attr.map_state != IsViewable) return;
++    while (XQueryTree(dpy, frame, &r, &parent, &children, &count)) {
++        if (children) XFree(children);
++        if (parent == root || parent == None) break;
++        frame = parent;
++    }
++    if (!XGetWindowAttributes(dpy, frame, &attr)) return;
++    XTranslateCoordinates(dpy, client, root, 0, 0, &cx, &cy, &child);
++    monitors = XRRGetMonitors(dpy, root, True, &n);
++    if (!monitors || n < 1) { if (monitors) XRRFreeMonitors(monitors); return; }
++    for (i = 0; i < n; ++i) {
++        int left = attr.x > monitors[i].x ? attr.x : monitors[i].x;
++        int top = attr.y > monitors[i].y ? attr.y : monitors[i].y;
++        int right = attr.x + attr.width < monitors[i].x + monitors[i].width ?
++            attr.x + attr.width : monitors[i].x + monitors[i].width;
++        int bottom = attr.y + attr.height < monitors[i].y + monitors[i].height ?
++            attr.y + attr.height : monitors[i].y + monitors[i].height;
++        int area = (right > left && bottom > top) ? (right-left)*(bottom-top) : 0;
++        if (area > area_best || (area == area_best && monitors[i].primary)) {
++            best = i; area_best = area;
++        }
++    }
++    nx = attr.x; ny = attr.y;
++    if (nx + attr.width > monitors[best].x + monitors[best].width)
++        nx = monitors[best].x + monitors[best].width - attr.width;
++    if (ny + attr.height > monitors[best].y + monitors[best].height)
++        ny = monitors[best].y + monitors[best].height - attr.height;
++    if (nx < monitors[best].x) nx = monitors[best].x;
++    if (ny < monitors[best].y) ny = monitors[best].y;
++    if (nx != attr.x || ny != attr.y) {
++        XEvent event = {0};
++        event.xclient.type = ClientMessage;
++        event.xclient.window = client;
++        event.xclient.message_type = XInternAtom(dpy, "_NET_MOVERESIZE_WINDOW", False);
++        event.xclient.format = 32;
++        event.xclient.data.l[0] = StaticGravity | (3 << 8) | (1 << 12);
++        event.xclient.data.l[1] = nx + cx - attr.x;
++        event.xclient.data.l[2] = ny + cy - attr.y;
++        XSendEvent(dpy, root, False, SubstructureRedirectMask | SubstructureNotifyMask, &event);
++        XFlush(dpy);
++    }
++    XRRFreeMonitors(monitors);
+ }
+ 
+ static void set_icon(Widget wshell)
+--- a/src/common.mf
++++ b/src/common.mf
+@@ -5,7 +5,7 @@
+ xdg_cflags = $(shell $(PKG_CONFIG) --cflags garcon-1 gio-unix-2.0)
+ xdg_libs = $(shell $(PKG_CONFIG) --libs garcon-1 gio-unix-2.0)
+ # Only the toolbox links to XDG libraries; the privileged session manager does not.
+-toolbox_libs = -lXm -lXt -lXrender -lX11 $(xdg_libs)
++toolbox_libs = -lXm -lXt -lXrender -lXrandr -lX11 $(xdg_libs)
+ xmsm_libs = -lXm -lXt -lXss -lXrandr -lXinerama -lX11 $(SYSLIBS)
+ 
+ toolbox_objs = tbtray.o tbmain.o tbparse.o wswitch.o tbxdg.o tbxdgmenu.o

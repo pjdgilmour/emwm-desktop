@@ -12,6 +12,9 @@ import stat
 import subprocess
 import sys
 import time
+import gi
+gi.require_version('Gdk', '3.0')
+from gi.repository import Gdk, GLib
 
 
 def resource_path(value):
@@ -114,6 +117,16 @@ def main():
     except (OSError, ValueError, IndexError, subprocess.SubprocessError):
         monitors = 1
     prepare_profile(config, monitors)
+    # RandR events through GDK; no repeated xrandr subprocesses while idle.
+    screen = Gdk.Screen.get_default()
+    layout_due = time.monotonic()
+    def layout_changed(*_):
+        nonlocal layout_due
+        layout_due = time.monotonic() + .5
+    screen.connect('monitors-changed', layout_changed)
+    screen.connect('size-changed', layout_changed)
+    # Initialize GDK's monitor inventory before starting the desktop.
+    screen.get_n_monitors()
     # Make the standard home-trash directories available before libfm/GVfs
     # installs its monitors (important on a completely new user profile).
     data = Path(os.environ.get('XDG_DATA_HOME', home / '.local/share'))
@@ -156,6 +169,17 @@ def main():
         stamp = None
         last_check = 0
         while not stopped and child.poll() is None and watcher.poll() is None:
+            context = GLib.MainContext.default()
+            while context.pending(): context.iteration(False)
+            if layout_due is not None and time.monotonic() >= layout_due:
+                layout_due = None
+                tool = Path(__file__).resolve().with_name('emwm-wallpaper-tool')
+                command = str(tool) if tool.is_file() else 'emwm-wallpaper-tool'
+                try:
+                    subprocess.run([command, '--refresh-layout'], timeout=60, check=True)
+                except (OSError, subprocess.SubprocessError):
+                    print('emwm-desktop-icons: mantendo o fundo anterior após falha na recomposição.', file=sys.stderr)
+                refresh = True
             for key, _ in selector.select(.5):
                 chunk = os.read(key.fd, 65536)
                 if not chunk:
