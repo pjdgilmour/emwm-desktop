@@ -288,6 +288,13 @@ A ferramenta **Aparência do EMWM** permite selecionar tema GTK, ícones, cursor
 tamanho do cursor e cores Motif opcionais. As cores de fundo, texto, decoração
 ativa/inativa e seleção de ícones podem ser editadas com base no `trocacor.cpp`.
 A prévia não grava preferências; a aplicação preserva os backups.
+Na aba **Decoração**, o título pode usar gradiente horizontal, vertical ou
+diagonal, com cores inicial, final e de texto independentes para janelas ativas
+e inativas. O botão **Aplicar** atualiza os gradientes nas janelas abertas;
+**Sem gradiente** restaura o preenchimento do tema. O relevo e os botões Motif
+são preservados. É possível abrir diretamente com `emwm-appearance --decoration`.
+Ao atualizar de uma versão anterior à 0.2.6, reinicie o EMWM uma vez para carregar
+esse suporte; as alterações seguintes de gradiente dispensam reinício.
 Há integração com LightDM GTK Greeter mediante autenticação administrativa,
 sem reiniciar o gerenciador de login. Outros gerenciadores são detectados, mas
 não recebem alterações. Temas do login precisam estar instalados globalmente.

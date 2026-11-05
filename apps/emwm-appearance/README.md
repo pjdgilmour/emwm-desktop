@@ -4,6 +4,16 @@ Seleção de tema GTK, ícones, cursor/tamanho e paleta Motif opcional. A interf
 GTK 3 usa o tema escolhido na prévia; nenhuma preferência é salva antes de
 **Aplicar**. As decorações Motif conservam seu formato e relevo.
 
+A aba **Decoração** (`emwm-appearance --decoration`) reúne as cores Motif e o
+gradiente da barra de título. Escolha **Horizontal**, **Vertical** ou **Diagonal**,
+com cor inicial, final e do texto para janelas ativas e inativas. A prévia é local;
+**Aplicar** salva as escolhas com backup e atualiza as barras abertas. **Sem
+gradiente** restaura o preenchimento original do tema. O gradiente é desenhado
+pelo próprio EMWM via XRender, incluindo os botões da barra, e funciona com o
+compositor desligado, OpenGL ou XRender. Requer o EMWM atualizado em execução;
+após instalar esta versão, reinicie o WM uma vez. Mudanças posteriores do
+gradiente não exigem reinício. As demais cores Motif mantêm o fluxo anterior.
+
 Também configura o compositor próprio: OpenGL/XRender, sombras, efeitos
 Zoom/Twist/Flip de minimizar/restaurar/maximizar, duração, aparecimento gradual,
 VSync OpenGL e limite de quadros. As escolhas ficam pendentes até **Aplicar**,

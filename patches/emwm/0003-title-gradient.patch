@@ -1,0 +1,235 @@
+--- a/src/WmCDecor.c
++++ b/src/WmCDecor.c
+@@ -31,6 +31,9 @@
+ 
+ 
+ #include <stdlib.h>
++#include <ctype.h>
++#include <X11/Xatom.h>
++#include <X11/Xresource.h>
+ #include <X11/cursorfont.h>
+ #include <Xm/Xm.h>
+ 
+@@ -53,6 +56,141 @@
+ #include "WmWinInfo.h"
+ #include "WmWinConf.h"
+ #include "WmXinerama.h"
++
++/* Optional XRender title gradients. Resources are read once at startup and on
++ * RESOURCE_MANAGER changes, never queried from the server for every repaint.
++ * Two normalized source pictures per screen are reused for all frame sizes. */
++typedef struct {
++    Boolean loaded;
++    int mode;
++    Picture source[2];
++    Pixel text[2];
++    Boolean allocated[2];
++} TitleGradient;
++static TitleGradient *titleGradients;
++
++static const char *GradientResource(XrmDatabase db, const char *name,
++                                    const char *fallback)
++{
++    XrmValue value;
++    char *type;
++    char key[128], className[128];
++    snprintf(key, sizeof(key), "Emwm.%s", name);
++    snprintf(className, sizeof(className), "Emwm.%s", name);
++    className[5] = toupper((unsigned char)className[5]);
++    if (db && XrmGetResource(db, key, className, &type, &value) && value.addr)
++        return value.addr;
++    return fallback;
++}
++
++static TitleGradient *LoadTitleGradient(WmScreenData *screen, Boolean force)
++{
++    TitleGradient *g;
++    XrmDatabase db = NULL;
++    Atom actual;
++    int format, event, error, major, minor, i, j;
++    unsigned long count, remaining;
++    unsigned char *data = NULL;
++    const char *mode;
++    Colormap cmap = DefaultColormap(DISPLAY, screen->screen);
++    const char *keys[2][3] = {
++        {"titleGradientInactiveStart", "titleGradientInactiveEnd", "titleGradientInactiveText"},
++        {"titleGradientActiveStart", "titleGradientActiveEnd", "titleGradientActiveText"}
++    };
++    const char *defaults[2][3] = {
++        {"#b0b0b0", "#707070", "#101010"},
++        {"#24466b", "#7399ba", "#ffffff"}
++    };
++    if (!titleGradients)
++        titleGradients = (TitleGradient *)XtCalloc(ScreenCount(DISPLAY), sizeof(TitleGradient));
++    g = &titleGradients[screen->screen];
++    if (g->loaded && !force) return g;
++    for (i = 0; i < 2; i++) {
++        if (g->source[i]) XRenderFreePicture(DISPLAY, g->source[i]);
++        if (g->allocated[i]) XFreeColors(DISPLAY, cmap, &g->text[i], 1, 0);
++    }
++    memset(g, 0, sizeof(*g));
++    g->loaded = True;
++    if (!XRenderQueryExtension(DISPLAY, &event, &error) ||
++        !XRenderQueryVersion(DISPLAY, &major, &minor) || (major == 0 && minor < 10))
++        return g;
++    if (XGetWindowProperty(DISPLAY, screen->rootWindow, XA_RESOURCE_MANAGER,
++            0, 262144, False, XA_STRING, &actual, &format, &count, &remaining, &data) == Success &&
++            actual == XA_STRING && format == 8 && !remaining && data)
++        db = XrmGetStringDatabase((char *)data);
++    if (data) XFree(data);
++    mode = GradientResource(db, "titleGradient", "none");
++    if (!strcmp(mode, "horizontal")) g->mode = 1;
++    else if (!strcmp(mode, "vertical")) g->mode = 2;
++    else if (!strcmp(mode, "diagonal")) g->mode = 3;
++    for (i = 0; g->mode && i < 2; i++) {
++        XColor color;
++        XRenderColor stops[2];
++        XFixed positions[2] = {0, XDoubleToFixed(1)};
++        XLinearGradient line = {{0, 0},
++            {g->mode == 2 ? 0 : XDoubleToFixed(1), g->mode == 1 ? 0 : XDoubleToFixed(1)}};
++        for (j = 0; j < 3; j++) {
++            if (!XParseColor(DISPLAY, cmap, GradientResource(db, keys[i][j], defaults[i][j]), &color))
++                XParseColor(DISPLAY, cmap, defaults[i][j], &color);
++            if (j < 2) stops[j] = (XRenderColor){color.red, color.green, color.blue, 65535};
++            else {
++                g->allocated[i] = XAllocColor(DISPLAY, cmap, &color);
++                g->text[i] = g->allocated[i] ? color.pixel : WhitePixel(DISPLAY, screen->screen);
++            }
++        }
++        g->source[i] = XRenderCreateLinearGradient(DISPLAY, &line, positions, stops, 2);
++    }
++    if (db) XrmDestroyDatabase(db);
++    return g;
++}
++
++static void PaintTitleGradient(ClientData *pcd, XRectangle *clip)
++{
++    TitleGradient *g;
++    int x, y, width, height, state;
++    Drawable drawable;
++    Picture target;
++    XRenderPictFormat *format;
++    XTransform transform = {{{0, 0, 0}, {0, 0, 0}, {0, 0, XDoubleToFixed(1)}}};
++    if (!(pcd->decor & MWM_DECOR_TITLE) || pcd->fullScreen) return;
++    g = LoadTitleGradient(pcd->pSD, False);
++    if (!g->mode) return;
++    state = pcd == wmGD.keyboardFocus;
++    width = pcd->frameInfo.width - 2 * pcd->frameInfo.upperBorderWidth;
++    height = pcd->frameInfo.titleBarHeight;
++    if (width <= 0 || height <= 0) return;
++    x = y = DECOUPLE_TITLE_APPEARANCE(pcd) ? 0 : pcd->frameInfo.upperBorderWidth;
++    drawable = DECOUPLE_TITLE_APPEARANCE(pcd) ? pcd->clientTitleWin : ClientDecorDrawable(pcd, False);
++    format = XRenderFindVisualFormat(DISPLAY, DefaultVisual(DISPLAY, SCREEN_FOR_CLIENT(pcd)));
++    if (!format) return;
++    target = XRenderCreatePicture(DISPLAY, drawable, format, 0, NULL);
++    if (clip) XRenderSetPictureClipRectangles(DISPLAY, target, 0, 0, clip, 1);
++    transform.matrix[0][0] = XDoubleToFixed(1.0 / (width > 1 ? width - 1 : 1));
++    transform.matrix[1][1] = XDoubleToFixed(1.0 / (height > 1 ? height - 1 : 1));
++    XRenderSetPictureTransform(DISPLAY, g->source[state], &transform);
++    XRenderComposite(DISPLAY, PictOpSrc, g->source[state], None, target,
++                     0, 0, 0, 0, x, y, width, height);
++    XRenderFreePicture(DISPLAY, target);
++}
++
++static void RedrawGradientTree(ClientData *pcd)
++{
++    ClientData *child;
++    if (!pcd->desktopSurface && (pcd->decor & MWM_DECOR_TITLE) && !pcd->fullScreen) {
++        if (pcd == wmGD.keyboardFocus) ShowActiveClientFrame(pcd);
++        else ShowInactiveClientFrame(pcd);
++    }
++    for (child = pcd->transientChildren; child; child = child->transientSiblings)
++        RedrawGradientTree(child);
++}
++
++void ReloadTitleGradients(WmScreenData *screen)
++{
++    ClientListEntry *entry;
++    LoadTitleGradient(screen, True);
++    for (entry = screen->clientList; entry; entry = entry->nextSibling)
++        if (entry->type == NORMAL_STATE) RedrawGradientTree(entry->pCD);
++}
+ 
+ static void BevelCloseButton(RList *prTop, RList *prBot, int x, int y,
+                              unsigned int height);
+@@ -211,6 +349,7 @@
+     }
+     
+     PaintArgbBackground(pcd, False, NULL);
++    PaintTitleGradient(pcd, NULL);
+ 
+     /* use "active" GCs if we have keyboard focus */
+ 
+@@ -1283,6 +1422,10 @@
+     XRectangle textBox;
+     Window win;
+     XmRenderTable  renderTable;
++    TitleGradient *gradient;
++    XGCValues oldGC;
++    Boolean gradientText = False;
++    Boolean cleanText = ACTIVE_PSD->cleanText;
+ 
+     /* make sure there is a title bar first */
+     if (!(decoration & MWM_DECOR_TITLE))
+@@ -1324,9 +1467,11 @@
+ 	renderTable = CLIENT_APPEARANCE(pcd).renderTable;
+     }
+ 
++    gradient = LoadTitleGradient(pcd->pSD, False);
+     if (eraseFirst)
+     {
+-        if (pcd->argbFrame && !DECOUPLE_TITLE_APPEARANCE(pcd))
++        if (gradient->mode) PaintTitleGradient(pcd, &textBox);
++        else if (pcd->argbFrame && !DECOUPLE_TITLE_APPEARANCE(pcd))
+             PaintArgbBackground(pcd, False, &textBox);
+         else
+ 	XClearArea (DISPLAY, win, textBox.x, textBox.y, 
+@@ -1340,11 +1485,17 @@
+ 		textBox.width -= padding;
+ 	}
+ 
++    if (gradient->mode && XGetGCValues(DISPLAY, clientGC, GCForeground, &oldGC)) {
++        gradientText = True;
++        ACTIVE_PSD->cleanText = False;
++        XSetForeground(DISPLAY, clientGC, gradient->text[pcd == wmGD.keyboardFocus]);
++    }
+     WmDrawXmString(DISPLAY, win, renderTable,
+ 		pcd->ewmhClientTitle ? pcd->ewmhClientTitle : pcd->clientTitle,
+ 		clientGC, textBox.x, textBox.y, textBox.width, &textBox,
+ 		pcd->pSD->titleLeft ? False : True);
+ 
++    if (gradientText) { XSetForeground(DISPLAY, clientGC, oldGC.foreground); ACTIVE_PSD->cleanText = cleanText; }
+     if (eraseFirst) PresentArgbDecoration(pcd, False);
+ 
+ } /* END OF FUNCTION DrawWindowTitle */
+--- a/src/WmCDecor.h
++++ b/src/WmCDecor.h
+@@ -44,3 +44,5 @@
+ extern void PushGadgetIn (ClientData *pcd, int gadget);
+ extern void PopGadgetOut (ClientData *pcd, int gadget);
+ extern Boolean UpdateClientDecorations(ClientData *pcd);
++
++extern void ReloadTitleGradients(WmScreenData *screen);
+--- a/src/WmEvent.c
++++ b/src/WmEvent.c
+@@ -112,7 +112,7 @@
+      * manage client windows.  Setup accelerator event processing.
+      */
+ 
+-    base_mask = SubstructureRedirectMask | FocusChangeMask;
++    base_mask = SubstructureRedirectMask | FocusChangeMask | PropertyChangeMask;
+ 
+     /* handle entry of root window */
+     base_mask |= EnterWindowMask | LeaveWindowMask;
+@@ -858,6 +858,11 @@
+ 
+     switch (event->type)
+     {
++    case PropertyNotify:
++        if (event->xproperty.atom == XA_RESOURCE_MANAGER)
++            ReloadTitleGradients(ACTIVE_PSD);
++        break;
++
+ 	case KeyPress:
+ 	{
+ 	    /*

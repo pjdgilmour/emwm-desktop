@@ -34,7 +34,11 @@ def check():
         resources=subprocess.check_output(['xrdb','-query'],text=True)
         assert 'Emwm*client*activeBackground:\t#123456' in resources,resources
         win=next(w for w in Gtk.Window.list_toplevels() if w.get_title()=='Aparência do EMWM')
-        assert win.pages.get_n_pages()==3
+        assert win.pages.get_n_pages()==4
+        assert saved['gradient']['mode']=='diagonal',saved
+        assert saved['gradient']['active_start']=='#24466b',saved
+        assert 'Emwm*titleGradient:\tdiagonal' in resources,resources
+        assert win.pages.get_tab_label_text(win.pages.get_nth_page(3))=='Decoração'
         from desktop import current as desktop_current
         assert desktop_current(settings.config)['anchor']=='right'
         assert win.pages.get_tab_label_text(win.pages.get_nth_page(2))=='Área de trabalho'
@@ -45,6 +49,7 @@ def check():
         win.reset.clicked()
         assert win.values()['colors']['Emwm*client*activeBackground']=='#123456'
         assert win.compositor.values()['effect']=='twist'
+        assert win.gradient.values()['mode']=='diagonal'
         assert 'backdrops.resources' in (settings.home/'.Xresources').read_text()
         probe='''import gi; gi.require_version("Gtk","3.0"); from gi.repository import Gtk; Gtk.init([]); s=Gtk.Settings.get_default(); print(s.get_property("gtk-theme-name"),s.get_property("gtk-icon-theme-name"),s.get_property("gtk-cursor-theme-name"),s.get_property("gtk-cursor-theme-size"))'''
         env=dict(os.environ); env.pop('GTK_THEME',None)
@@ -93,6 +98,7 @@ def apply():
         win.compositor.widgets['duration_ms'].set_value(350)
         win.compositor.widgets['shadow_opacity'].set_value(65)
         win.desktop.anchor.set_active_id('right')
+        win.gradient.mode.set_active_id('diagonal')
         assert not (settings.config/'emwm-desktop/desktop.conf').exists(), 'selection must not apply desktop settings'
         assert not (settings.config/'emwm-desktop/compositor.conf').exists(), 'selection must not apply effects'
         win.apply.clicked()

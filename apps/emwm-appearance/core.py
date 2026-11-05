@@ -235,6 +235,9 @@ class Settings:
         result['palette'] = values.get('palette','keep')
         if not 8 <= result['size'] <= 128: raise ValueError('Tamanho de cursor deve estar entre 8 e 128.')
         if result['palette'] not in PALETTES: raise ValueError('Paleta inválida.')
+        if 'gradient' in values:
+            from gradient import validate
+            result['gradient'] = validate(values['gradient'])
         if 'colors' in values or result['palette'] == 'custom':
             colors = values.get('colors')
             if not isinstance(colors, dict) or set(colors) != set(COLOR_FIELDS):
@@ -279,6 +282,11 @@ class Settings:
             # previously selected here, rather than silently reverting at login.
             resources += ''.join(line+'\n' for line in read(self.directory/'appearance.resources').splitlines()
                                  if line and not line.startswith(('Xcursor.theme:', 'Xcursor.size:')))
+        if 'gradient' in values:
+            from gradient import resources as gradient_resources
+            resources = ''.join(line+'\n' for line in resources.splitlines()
+                                if not line.startswith('Emwm*titleGradient'))
+            resources += gradient_resources(values['gradient'])
         changes[self.directory/'appearance.resources'] = resources
         path = self.home/'.Xresources'
         include_path = str(self.directory/'appearance.resources')

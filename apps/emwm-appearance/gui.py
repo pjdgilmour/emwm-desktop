@@ -28,6 +28,7 @@ def main():
     parser.add_argument('--list',action='store_true',help='Listar temas e detectar o gerenciador de login.')
     parser.add_argument('--effects',action='store_true',help='Abrir a aba de efeitos e renderização.')
     parser.add_argument('--desktop',action='store_true',help='Abrir a aba da área de trabalho.')
+    parser.add_argument('--decoration',action='store_true',help='Abrir a aba de decoração e gradientes.')
     args=parser.parse_args()
     settings=Settings()
     if args.list:
@@ -94,7 +95,8 @@ def main():
             colors_grid=Gtk.Grid(column_spacing=16,row_spacing=8)
             colors_grid.set_border_width(10)
             colors_frame.add(colors_grid)
-            outer.pack_start(colors_frame,False,False,0)
+            decoration=Gtk.Box(orientation=Gtk.Orientation.VERTICAL,spacing=12)
+            decoration.pack_start(colors_frame,False,False,0)
             initial_colors=original.get('colors',settings.motif_colors())
             for row,(key,(label,default)) in enumerate(COLOR_FIELDS.items()):
                 button=Gtk.ColorButton()
@@ -112,6 +114,9 @@ def main():
             colors_grid.attach(self.decoration_preview,0,len(COLOR_FIELDS),2,1)
             self.palette.connect('changed',self.palette_changed)
             self.palette_changed()
+            from gradient import Controls as GradientControls
+            self.gradient=GradientControls(Gtk,Gdk,original.get('gradient',{}),self.decoration_preview.queue_draw)
+            decoration.pack_start(self.gradient.frame,False,False,0)
             frame=Gtk.Frame(label='Prévia local — nenhuma preferência é salva até Aplicar')
             demo=Gtk.Box(orientation=Gtk.Orientation.VERTICAL,spacing=8)
             demo.set_border_width(12)
@@ -137,6 +142,10 @@ def main():
             from desktop import Controls as DesktopControls
             self.desktop=DesktopControls(Gtk,Gdk,settings.config)
             self.pages.append_page(self.desktop.frame,Gtk.Label(label='Área de trabalho'))
+            decoration_scroll=Gtk.ScrolledWindow()
+            decoration_scroll.set_policy(Gtk.PolicyType.AUTOMATIC,Gtk.PolicyType.AUTOMATIC)
+            decoration_scroll.add(decoration)
+            self.pages.append_page(decoration_scroll,Gtk.Label(label='Decoração'))
             logintext=f'Tela de login detectada: {self.login["manager"]} / {self.login["greeter"]}'
             outer.pack_start(Gtk.Label(label=logintext,xalign=0),False,False,0)
             self.apply_login=Gtk.CheckButton(label='Aplicar também à tela de login (solicita senha administrativa)')
@@ -166,7 +175,8 @@ def main():
         def values(self):
             return {**{key:combo.get_active_id() for key,combo in self.combos.items()},
                     'size':self.size.get_value_as_int(),'palette':self.palette.get_active_id(),
-                    'colors':{key:self.color_hex(button.get_rgba()) for key,button in self.color_buttons.items()}}
+                    'colors':{key:self.color_hex(button.get_rgba()) for key,button in self.color_buttons.items()},
+                    'gradient':self.gradient.values()}
 
         @staticmethod
         def color_hex(color):
@@ -189,6 +199,9 @@ def main():
             self.decoration_preview.queue_draw()
 
         def draw_decoration(self,widget,cr):
+            import cairo
+            from gradient import DEFAULTS
+            gradient=self.gradient.values() if hasattr(self,'gradient') else DEFAULTS
             colors={key:button.get_rgba() for key,button in self.color_buttons.items()}
             def fill(key,x,y,w,h):
                 color=colors[key]; cr.set_source_rgb(color.red,color.green,color.blue)
@@ -198,11 +211,25 @@ def main():
                                 (width/2+4,'Emwm*client*activeBackground','Janela ativa')]:
                 w=width/2-12
                 fill(key,x,4,w,88)
+                state='active' if key.endswith('activeBackground') else 'inactive'
+                if gradient['mode']!='none':
+                    direction=gradient['mode']
+                    pattern=cairo.LinearGradient(0,0,0 if direction=='vertical' else 1,
+                                                 0 if direction=='horizontal' else 1)
+                    pattern.set_matrix(cairo.Matrix(xx=1/(w-2),yy=1/25,x0=-(x+1)/(w-2),y0=-5/25))
+                    for stop,part in enumerate(('start','end')):
+                        color=Gdk.RGBA(); color.parse(gradient[state+'_'+part])
+                        pattern.add_color_stop_rgb(stop,color.red,color.green,color.blue)
+                    cr.set_source(pattern); cr.rectangle(x+1,5,w-2,25); cr.fill()
                 fill('*background',x+5,31,w-10,56)
                 # Contrast only for the explanatory preview labels, not a WM resource.
                 color=colors[key]
                 shade=0 if .299*color.red+.587*color.green+.114*color.blue > .5 else 1
-                cr.set_source_rgb(shade,shade,shade); cr.move_to(x+8,23); cr.show_text(label)
+                if gradient['mode']!='none':
+                    color=Gdk.RGBA(); color.parse(gradient[state+'_text'])
+                    cr.set_source_rgb(color.red,color.green,color.blue)
+                else: cr.set_source_rgb(shade,shade,shade)
+                cr.move_to(x+8,23); cr.show_text(label)
                 color=colors['*foreground']; cr.set_source_rgb(color.red,color.green,color.blue)
                 cr.move_to(x+12,54); cr.show_text('Texto Motif')
                 fill('Emwm*icon*activeBackground',x+12,64,24,16)
@@ -237,6 +264,7 @@ def main():
             values=settings.current()
             self.compositor.reload()
             self.desktop.reload()
+            self.gradient.reload(values.get('gradient',{}))
             for key,kind in [('theme','gtk'),('icons','icons'),('cursor','cursor')]:
                 self.populate(key,kind,self.combos[key],values[key])
             self.size.set_value(values['size']); self.palette.set_active_id(values['palette'])
@@ -260,6 +288,7 @@ def main():
                 notes=apply_live(settings,values)
                 notes.append('Composição: o compositor ativo lê os efeitos em até um segundo; serão usados também no próximo login.')
                 notes.append('Área de trabalho: monitor e alinhamento aplicados automaticamente; uma operação de arrastar em andamento termina primeiro.')
+                notes.append('Decoração: gradiente e cor do texto atualizados nas janelas abertas.')
                 self.status.set_text('Aplicado à sessão. Backup: '+str(backup)+'\n'+'\n'.join(notes)+
                     '\nCores Motif: reinicie o EMWM para atualizar as decorações e reabra os aplicativos Motif.'+
                     '\nSe a sessão foi iniciada com GTK_THEME fixado, saia e entre novamente uma vez para liberar a troca de tema em todos os aplicativos.')
@@ -284,6 +313,7 @@ def main():
     window=Window(); window.show_all()
     if args.effects: window.pages.set_current_page(1)
     if args.desktop: window.pages.set_current_page(2)
+    if args.decoration: window.pages.set_current_page(3)
     Gtk.main()
 
 if __name__=='__main__': main()
