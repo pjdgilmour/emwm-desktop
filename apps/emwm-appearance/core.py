@@ -244,12 +244,16 @@ class Settings:
             result['colors'] = {key: value.lower() for key, value in colors.items()}
         return result
 
-    def apply(self, values, compositor=None):
+    def apply(self, values, compositor=None, desktop=None):
         values = self.validate(values)
         for key,kind in [('theme','gtk'),('icons','icons'),('cursor','cursor')]:
             if values[key] not in self.discover(kind): raise ValueError(f'Tema não encontrado: {values[key]}')
         backup = self.state/'emwm-desktop/appearance-backups'/datetime.now().strftime('%Y%m%d-%H%M%S-%f')
         changes = {}
+        if desktop is not None:
+            from desktop import configuration
+            path, content = configuration(self.config, desktop)
+            changes[path] = content
         if compositor is not None:
             from compositor import configuration
             path, content = configuration(self.config, compositor)

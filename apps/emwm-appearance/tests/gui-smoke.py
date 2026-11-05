@@ -34,7 +34,10 @@ def check():
         resources=subprocess.check_output(['xrdb','-query'],text=True)
         assert 'Emwm*client*activeBackground:\t#123456' in resources,resources
         win=next(w for w in Gtk.Window.list_toplevels() if w.get_title()=='Aparência do EMWM')
-        assert win.pages.get_n_pages()==2
+        assert win.pages.get_n_pages()==3
+        from desktop import current as desktop_current
+        assert desktop_current(settings.config)['anchor']=='right'
+        assert win.pages.get_tab_label_text(win.pages.get_nth_page(2))=='Área de trabalho'
         win.pages.set_current_page(1)
         assert win.pages.get_tab_label_text(win.pages.get_nth_page(1))=='Efeitos e renderização'
         color=Gdk.RGBA(); color.parse('#abcdef')
@@ -89,6 +92,8 @@ def apply():
         win.compositor.widgets['backend'].set_active_id('glx')
         win.compositor.widgets['duration_ms'].set_value(350)
         win.compositor.widgets['shadow_opacity'].set_value(65)
+        win.desktop.anchor.set_active_id('right')
+        assert not (settings.config/'emwm-desktop/desktop.conf').exists(), 'selection must not apply desktop settings'
         assert not (settings.config/'emwm-desktop/compositor.conf').exists(), 'selection must not apply effects'
         win.apply.clicked()
         GLib.timeout_add(600,check)

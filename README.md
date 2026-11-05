@@ -125,6 +125,24 @@ avaliados com os drivers e monitores reais. Consulte
 
 ### Arquivos, ícones e lixeira no desktop
 
+Em **Aparência → Área de trabalho** (ou `emwm-appearance --desktop`), escolha o
+**Monitor dos ícones** e a ancoragem **Esquerda/Direita**. Por padrão, arquivos,
+lixeira e volumes aparecem somente no principal informado pelo X11/driver.
+Também é possível escolher uma saída pelo nome, como `DP-4`; isso define o
+monitor dos ícones sem mudar a configuração de vídeo do sistema. Se a saída
+escolhida for desconectada, os ícones passam ao principal disponível (ou primeiro
+ativo) e voltam à saída escolhida quando ela for reconectada. Os demais monitores
+mantêm o fundo de tela. A preferência é salva em
+`~/.config/emwm-desktop/desktop.conf`, respeitando `XDG_CONFIG_HOME`.
+
+A aplicação é imediata, após terminar qualquer arrasto em andamento, sem
+reiniciar a sessão ou fechar janelas do gerenciador de arquivos. A troca de lado
+espelha horizontalmente as posições manuais, mantendo a altura; os ícones
+automáticos começam na borda escolhida. Nas preferências da área de trabalho,
+o botão **Monitor e alinhamento dos ícones…** também abre essa aba. O botão
+**Configurar papel de parede…** dá acesso
+à configuração dos fundos por workspace e monitor.
+
 O `emwm-desktop-icons` inicia o gerenciador de desktop do PCManFM com o perfil
 `emwm-desktop`. Ele mostra a pasta indicada por `xdg-user-dir DESKTOP`, incluindo
 pastas localizadas, e oferece seleção, arrastar e soltar, copiar, mover, renomear,

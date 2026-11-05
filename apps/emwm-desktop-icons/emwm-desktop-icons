@@ -126,7 +126,8 @@ def main():
         Path(desktop).mkdir(parents=True, exist_ok=True)
     bundled = Path(__file__).resolve().with_name('pcmanfm')
     file_manager = str(bundled) if bundled.is_file() else 'pcmanfm'
-    child = subprocess.Popen([file_manager, '--profile=emwm-desktop', '--desktop'])
+    child = subprocess.Popen([file_manager, '--profile=emwm-desktop', '--desktop'],
+                             env={**os.environ, 'EMWM_DESKTOP_LAYOUT': '1'})
     watcher = None
     stopped = False
 

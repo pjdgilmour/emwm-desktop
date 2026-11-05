@@ -176,6 +176,8 @@ def build(args):
             run([sys.executable, ROOT / 'tests/desktop-drag.py',
                  '--wm', wm / 'src/emwm', '--compositor', compositor / 'emwm-compositor',
                  '--file-manager', pcmanfm / 'src/pcmanfm'])
+            run([sys.executable, ROOT / 'tests/desktop-monitors.py',
+                 '--wm', wm / 'src/emwm', '--file-manager', pcmanfm / 'src/pcmanfm'])
             run(['make', 'test-x11'], cwd=utils)
             run(['sh', ROOT / 'tests/run-toolchest-tray.sh', utils])
             env = dict(os.environ, EMWM_BINARY=str(wm / 'src/emwm'))
@@ -206,7 +208,7 @@ def build(args):
         for src in (ROOT / 'config').iterdir():
             copy(src, data_dir / src.name)
         appearance = ROOT / 'apps/emwm-appearance'
-        for name in ['core.py', 'gui.py', 'runtime.py', 'login_helper.py', 'wallpaper.py', 'wallpaper_ui.py', 'compositor.py']:
+        for name in ['core.py', 'gui.py', 'runtime.py', 'login_helper.py', 'wallpaper.py', 'wallpaper_ui.py', 'compositor.py', 'desktop.py']:
             copy(appearance / name, stage / PREFIX.lstrip('/') / 'appearance' / name)
         copy(appearance / 'emwm-appearance', stage / 'usr/bin/emwm-appearance', 0o755)
         copy(appearance / 'emwm-appearance', bin_dir / 'emwm-appearance', 0o755)

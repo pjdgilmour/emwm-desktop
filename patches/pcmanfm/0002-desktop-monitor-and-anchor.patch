@@ -1,0 +1,284 @@
+--- a/src/desktop.c
++++ b/src/desktop.c
+@@ -114,6 +114,31 @@
+ 
+ static guint idle_config_save = 0;
+ 
++/* Enabled only by the EMWM desktop controller, never by other profiles. */
++static gboolean emwm_layout = FALSE;
++static gboolean emwm_right = FALSE;
++static char *emwm_output = NULL;
++static GFileMonitor *emwm_settings_monitor = NULL;
++static guint emwm_refresh_id = 0;
++static gint emwm_on_screen = -1;
++static void emwm_queue_refresh(void);
++
++static gint emwm_icon_monitor(GdkScreen *screen)
++{
++    gint i, count = gdk_screen_get_n_monitors(screen);
++    if (emwm_output && strcmp(emwm_output, "primary"))
++        for (i = 0; i < count; i++)
++        {
++            char *name = gdk_screen_get_monitor_plug_name(screen, i);
++            gboolean match = !g_strcmp0(name, emwm_output);
++            g_free(name);
++            if (match) return i;
++        }
++    i = gdk_screen_get_primary_monitor(screen);
++    return (i >= 0 && i < count) ? i : 0;
++}
++
++
+ enum {
+ #if N_FM_DND_DEST_DEFAULT_TARGETS > N_FM_DND_SRC_DEFAULT_TARGETS
+     FM_DND_DEST_DESKTOP_ITEM = N_FM_DND_DEST_DEFAULT_TARGETS
+@@ -314,6 +339,15 @@
+                 item->fixed_pos = TRUE;
+                 item->area.x = g_key_file_get_integer(kf, name, "x", NULL);
+                 item->area.y = g_key_file_get_integer(kf, name, "y", NULL);
++                /* Mirror manually positioned icons when changing the anchor,
++                 * preserving their relative arrangement and vertical position. */
++                if (emwm_layout)
++                {
++                    gboolean was_right = g_key_file_get_boolean(kf, "*", "emwm_anchor_right", NULL);
++                    if (was_right != emwm_right)
++                        item->area.x = 2 * desktop->working_area.x + desktop->working_area.width
++                                     - item->area.x - desktop->cell_w;
++                }
+                 /* pull item into screen bounds */
+                 if (item->area.x < desktop->xmargin + desktop->working_area.x)
+                     item->area.x = desktop->xmargin + desktop->working_area.x;
+@@ -401,7 +435,27 @@
+     if (desktop->conf.configured)
+     {
+         fm_app_config_save_desktop_config(buf, "*", &desktop->conf);
++        if (emwm_layout && desktop->model)
++            g_string_append_printf(buf, "emwm_anchor_right=%s\n", emwm_right ? "true" : "false");
+         g_string_append_c(buf, '\n');
++    }
++
++    /* A background-only monitor must not erase its saved manual positions.
++     * Wallpaper updates also save this file while its icon model is disabled. */
++    if (emwm_layout && !desktop->model)
++    {
++        GKeyFile *saved = g_key_file_new();
++        if (g_key_file_load_from_file(saved, path, 0, NULL))
++        {
++            gboolean right = g_key_file_get_boolean(saved, "*", "emwm_anchor_right", NULL);
++            char *positions;
++            g_string_append_printf(buf, "emwm_anchor_right=%s\n\n", right ? "true" : "false");
++            g_key_file_remove_group(saved, "*", NULL);
++            positions = g_key_file_to_data(saved, NULL, NULL);
++            g_string_append(buf, positions);
++            g_free(positions);
++        }
++        g_key_file_free(saved);
+     }
+ 
+     /* save all items positions */
+@@ -1717,7 +1771,8 @@
+     GdkPixbuf* icon;
+     GtkTreeIter it;
+     int x, y, bottom;
+-    GtkTextDirection direction = gtk_widget_get_direction(GTK_WIDGET(self));
++    GtkTextDirection direction = emwm_layout ? (emwm_right ? GTK_TEXT_DIR_RTL : GTK_TEXT_DIR_LTR)
++                                            : gtk_widget_get_direction(GTK_WIDGET(self));
+ 
+     y = self->ymargin;
+     bottom = self->working_area.height - self->ymargin;
+@@ -2623,6 +2678,11 @@
+ static void on_screen_size_changed(GdkScreen* screen, FmDesktop* desktop)
+ {
+     GdkRectangle geom;
++    if (emwm_layout)
++    {
++        emwm_queue_refresh();
++        return;
++    }
+     if (desktop->monitor >= gdk_screen_get_n_monitors(screen))
+     {
+         gint i;
+@@ -2879,7 +2939,8 @@
+     GList* items = get_selected_items(desktop, NULL);
+     GList* l;
+     int x, y;
+-    GtkTextDirection direction = gtk_widget_get_direction(GTK_WIDGET(desktop));
++    GtkTextDirection direction = emwm_layout ? (emwm_right ? GTK_TEXT_DIR_RTL : GTK_TEXT_DIR_LTR)
++                                            : gtk_widget_get_direction(GTK_WIDGET(desktop));
+ 
+     y = desktop->working_area.y + desktop->ymargin;
+     //bottom = desktop->working_area.y + desktop->working_area.height - desktop->ymargin - desktop->cell_h;
+@@ -4814,9 +4875,20 @@
+ #if FM_CHECK_VERSION(1, 0, 2)
+     g_signal_handlers_disconnect_by_func(desktop->model, on_sort_changed, desktop);
+ #endif
++    fm_desktop_accessible_model_removed(desktop);
++    if (emwm_layout)
++    {
++        GtkTreeIter iter;
++        GtkTreeModel *model = GTK_TREE_MODEL(desktop->model);
++        if (gtk_tree_model_get_iter_first(model, &iter)) do
++        {
++            FmDesktopItem *item = fm_folder_model_get_item_userdata(desktop->model, &iter);
++            if (item) desktop_item_free(item);
++            fm_folder_model_set_item_userdata(desktop->model, &iter, NULL);
++        } while (gtk_tree_model_iter_next(model, &iter));
++    }
+     g_object_unref(desktop->model);
+     desktop->model = NULL;
+-    fm_desktop_accessible_model_removed(desktop);
+     /* update popup now */
+     fm_folder_view_add_popup(FM_FOLDER_VIEW(desktop), GTK_WINDOW(desktop),
+                              fm_desktop_update_popup);
+@@ -4849,6 +4921,9 @@
+     GdkScreen* screen;
+ 
+     self = FM_DESKTOP(object);
++    /* Save while the model and fixed items still exist. */
++    if (emwm_layout && self->conf.changed)
++        save_item_pos(self);
+     if(self->icon_render) /* see bug #3533958 by korzhpavel@SF */
+     {
+         screen = gtk_widget_get_screen((GtkWidget*)self);
+@@ -5688,6 +5763,16 @@
+     }
+ }
+ 
++static void emwm_open_preferences(GtkButton *button, gpointer data)
++{
++    GError *error = NULL;
++    if (!g_spawn_command_line_async("emwm-appearance --desktop", &error))
++    {
++        fm_show_error(NULL, NULL, error->message);
++        g_error_free(error);
++    }
++}
++
+ void fm_desktop_preference(GtkAction *act, FmDesktop *desktop)
+ {
+     if (desktop == NULL)
+@@ -5704,6 +5789,16 @@
+         builder = gtk_builder_new();
+         gtk_builder_add_from_file(builder, PACKAGE_UI_DIR "/desktop-pref.ui", NULL);
+         desktop_pref_dlg = GTK_WINDOW(gtk_builder_get_object(builder, "dlg"));
++        if (emwm_layout)
++        {
++            GtkWidget *button = gtk_button_new_with_label("Monitor e alinhamento dos ícones…");
++            GtkWidget *content = gtk_dialog_get_content_area(GTK_DIALOG(desktop_pref_dlg));
++            gtk_box_pack_start(GTK_BOX(content), button, FALSE, FALSE, 6);
++            g_signal_connect(button, "clicked", G_CALLBACK(emwm_open_preferences), NULL);
++            gtk_widget_show(button);
++            /* A topology change can destroy the transient parent. */
++            g_signal_connect(desktop_pref_dlg, "destroy", G_CALLBACK(gtk_widget_destroyed), &desktop_pref_dlg);
++        }
+         item = gtk_builder_get_object(builder, "wallpaper");
+         g_signal_connect(item, "file-set", G_CALLBACK(on_wallpaper_set), desktop);
+         img_preview = gtk_image_new();
+@@ -5821,6 +5916,67 @@
+ /* ---------------------------------------------------------------------
+     Interface functions */
+ 
++/* Coalesce configuration and RandR changes. Recreate desktop surfaces only;
++ * file-manager windows and their operations stay in the same process. */
++static gboolean emwm_refresh(gpointer unused)
++{
++    gint i, screen = emwm_on_screen;
++    for (i = 0; i < n_screens; i++)
++        if (desktops[i]->dragging || desktops[i]->rubber_bending)
++            return TRUE;
++    emwm_refresh_id = 0;
++    pcmanfm_ref();
++    fm_desktop_manager_finalize();
++    fm_desktop_manager_init(screen);
++    pcmanfm_unref();
++    return FALSE;
++}
++
++static void emwm_queue_refresh(void)
++{
++    if (!emwm_refresh_id)
++        emwm_refresh_id = g_timeout_add(250, emwm_refresh, NULL);
++}
++
++static void emwm_settings_changed(GFileMonitor *monitor, GFile *file,
++                                  GFile *other, GFileMonitorEvent event, gpointer data)
++{
++    char *name = g_file_get_basename(file);
++    char *other_name = other ? g_file_get_basename(other) : NULL;
++    if (!g_strcmp0(name, "desktop.conf") || !g_strcmp0(other_name, "desktop.conf"))
++        emwm_queue_refresh();
++    g_free(name);
++    g_free(other_name);
++}
++
++static void emwm_load_settings(gint on_screen)
++{
++    char *directory, *path, *anchor;
++    GKeyFile *settings;
++    GFile *file;
++    emwm_layout = !g_strcmp0(g_getenv("EMWM_DESKTOP_LAYOUT"), "1");
++    if (!emwm_layout) return;
++    emwm_on_screen = on_screen;
++    directory = g_build_filename(g_get_user_config_dir(), "emwm-desktop", NULL);
++    g_mkdir_with_parents(directory, 0700);
++    path = g_build_filename(directory, "desktop.conf", NULL);
++    settings = g_key_file_new();
++    g_key_file_load_from_file(settings, path, 0, NULL);
++    g_free(emwm_output);
++    emwm_output = g_key_file_get_string(settings, "desktop", "monitor", NULL);
++    anchor = g_key_file_get_string(settings, "desktop", "anchor", NULL);
++    emwm_right = !g_strcmp0(anchor, "right");
++    g_free(anchor);
++    g_key_file_free(settings);
++    file = g_file_new_for_path(directory);
++    emwm_settings_monitor = g_file_monitor_directory(file, G_FILE_MONITOR_WATCH_MOVES, NULL, NULL);
++    if (emwm_settings_monitor)
++        g_signal_connect(emwm_settings_monitor, "changed", G_CALLBACK(emwm_settings_changed), NULL);
++    g_object_unref(file);
++    g_free(path);
++    g_free(directory);
++}
++
+ void fm_desktop_manager_init(gint on_screen)
+ {
+     GdkDisplay * gdpy;
+@@ -5829,6 +5985,8 @@
+ #if FM_CHECK_VERSION(1, 2, 0)
+     GFile *gf;
+ #endif
++
++    emwm_load_settings(on_screen);
+ 
+     if(! win_group)
+         win_group = gtk_window_group_new();
+@@ -5862,7 +6020,9 @@
+             /* realize it: without this, setting wallpaper or font won't work */
+             gtk_widget_realize(widget);
+             /* realizing also loads config */
+-            if (desktop->conf.folder)
++            if (emwm_layout && mon != emwm_icon_monitor(screen))
++                desktop_folder = NULL;
++            else if (desktop->conf.folder)
+             {
+                 if (desktop->conf.folder[0])
+                     desktop_folder = fm_folder_from_path_name(desktop->conf.folder);
+@@ -5941,6 +6101,19 @@
+ {
+     int i;
+ 
++    if (emwm_refresh_id)
++    {
++        g_source_remove(emwm_refresh_id);
++        emwm_refresh_id = 0;
++    }
++    if (emwm_settings_monitor)
++    {
++        g_file_monitor_cancel(emwm_settings_monitor);
++        g_object_unref(emwm_settings_monitor);
++        emwm_settings_monitor = NULL;
++    }
++
++
+     if (idle_config_save)
+     {
+         g_source_remove(idle_config_save);

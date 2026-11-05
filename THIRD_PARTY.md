@@ -13,7 +13,7 @@ transfere a autoria nem substitui as licenças dos componentes.
 | emwm-wallpaper-tool | https://github.com/pjdgilmour/minhasapps | Copiado do projeto do usuário, cujo repositório contém GPL versão 3; cópia da licença em `apps/emwm-wallpaper-tool/COPYING`. |
 | Scripts de integração deste repositório | pjdgilmour | GPL-3.0-only; ver `LICENSE`. |
 | EMWM Compositor e integração do desktop | pjdgilmour / emwm-desktop | GPL-3.0-only; efeitos contêm geometria adaptada do Window Maker GPL-2.0-or-later, combinada sob GPL 3. |
-| PCManFM 1.4.0 | https://github.com/lxde/pcmanfm / fonte original Debian | GPL-2.0-or-later; cópia privada com correção de encerramento de arrasto em `patches/pcmanfm/`. SHA-256 em `sources.lock.json`; fontes e COPYING incluídos no pacote. |
+| PCManFM 1.4.0 | https://github.com/lxde/pcmanfm / fonte original Debian | GPL-2.0-or-later; cópia privada com correção de encerramento de arrasto, monitor único para ícones e alinhamento configurável em `patches/pcmanfm/`. SHA-256 em `sources.lock.json`; fontes e COPYING incluídos no pacote. |
 | Geometria Zoom/Twist/Flip | Window Maker, `src/actions.c`, commit `558e67f30331eb03955d7bf3bf4a55c8520c64b6`, https://github.com/window-maker/wmaker | Alfredo K. Kojima (1997–2003), Dan Pascu (1998–2003), Window Maker Team (2014–2026). GPL-2.0-or-later; texto original em `apps/emwm-compositor/COPYING.WindowMaker`. |
 
 Autores originais do EMWM incluem The Open Group (Motif) e alx / fastestcode.org.

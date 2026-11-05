@@ -13,6 +13,14 @@ inclusive a troca de backend. Não é necessário reiniciar o WM para esses efei
 O componente gráfico precisa estar instalado pelo pacote completo; instalar
 somente a ferramenta de aparência não instala o compositor.
 
+A aba **Área de trabalho** (`emwm-appearance --desktop`) seleciona o monitor
+dos ícones e a ancoragem à esquerda ou à direita. Por padrão segue o principal
+do sistema; também aceita uma saída específica, lembrada após reconexão.
+Arquivos, lixeira e volumes são exibidos apenas nessa saída. As posições manuais
+são espelhadas ao trocar o lado. **Aplicar** grava `desktop.conf` na mesma
+transação de backup das demais preferências. A aplicação ao vivo requer o
+PCManFM privado iniciado pelo controlador `emwm-desktop-icons` do pacote.
+
 ## Instalação independente (Debian)
 
 Na raiz do repositório emwm-desktop:
