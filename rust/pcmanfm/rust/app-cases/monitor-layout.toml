@@ -1,0 +1,4 @@
+bin.name = "desktop-replay"
+args = ["monitors"]
+status.code = 0
+fs.sandbox = true

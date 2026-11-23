@@ -1,0 +1,9 @@
+{"name":"help","args":["--help"]}
+{"name":"jobs-zero","args":["--jobs","0","--build-only"]}
+{"name":"jobs-large","args":["--jobs=129","--build-only"]}
+{"name":"jobs-invalid","args":["--jobs","x","--build-only"]}
+{"name":"conflicting-options","args":["--build-only","--dependencies-only"]}
+{"name":"unknown-argument","args":["--unknown"]}
+{"name":"missing-source-before-build-only","args":["--sources","--build-only"]}
+{"name":"abbreviated-options","args":["--build","--dep"]}
+{"name":"flag-with-value","args":["--test=yes"]}

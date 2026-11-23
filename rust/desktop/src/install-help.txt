@@ -1,0 +1,14 @@
+usage: install.py [-h] [--build-only] [--dependencies-only]
+                  [--sources SOURCES] [--test] [--yes] [--jobs JOBS]
+
+Build a pinned EMWM Desktop .deb as the user; elevate only apt operations.
+
+options:
+  -h, --help           show this help message and exit
+  --build-only         Compilar o .deb sem apt, sudo ou instalação.
+  --dependencies-only  Instalar apenas dependências de compilação.
+  --sources SOURCES    Usar commits dos repositórios locais DIR/emwm e
+                       DIR/emwm-utils.
+  --test               Executar também testes X11/ARGB em Xvfb.
+  --yes                Passar -y ao apt-get.
+  --jobs JOBS

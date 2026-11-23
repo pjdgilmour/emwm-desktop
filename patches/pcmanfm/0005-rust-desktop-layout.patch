@@ -1,0 +1,480 @@
+--- a/src/Makefile.am
++++ b/src/Makefile.am
+@@ -45,7 +45,9 @@
+ 	-Werror-implicit-function-declaration \
+ 	$(NULL)
+ 
+-pcmanfm_LDADD = \
++pcmanfm_DEPENDENCIES = $(PCMANFM_LAYOUT_LIB)
++
++pcmanfm_LDADD = $(PCMANFM_LAYOUT_LIB) \
+ 	$(XLIB_LIBS) \
+ 	$(FM_LIBS) \
+ 	$(NULL)
+--- a/src/desktop.c
++++ b/src/desktop.c
+@@ -49,6 +49,8 @@
+ # define FM_FOLDER_MODEL_COL_ICON COL_FILE_ICON
+ #endif
+ 
++#include "emwm-layout.h"
++
+ #define SPACING 2
+ #define PADDING 6
+ #define MARGIN  2
+@@ -281,24 +283,29 @@
+     g_slice_free(FmDesktopItem, item);
+ }
+ 
++static EmwmGrid desktop_grid(FmDesktop *desktop)
++{
++    gboolean right = emwm_layout ? emwm_right :
++        gtk_widget_get_direction(GTK_WIDGET(desktop)) == GTK_TEXT_DIR_RTL;
++    return (EmwmGrid){desktop->working_area, desktop->xmargin, desktop->ymargin,
++                      desktop->cell_w, desktop->cell_h, right};
++}
++
++static EmwmGeometry item_geometry(FmDesktopItem *item)
++{
++    return (EmwmGeometry){item->area, item->icon_rect, item->text_rect};
++}
++
++static void set_geometry(FmDesktopItem *item, EmwmGeometry geometry)
++{
++    item->area = geometry.area;
++    item->icon_rect = geometry.icon;
++    item->text_rect = geometry.text;
++}
++
+ static void calc_item_size(FmDesktop* desktop, FmDesktopItem* item, GdkPixbuf* icon)
+ {
+     PangoRectangle rc2;
+-
+-    /* icon rect */
+-    if(icon)
+-    {
+-        item->icon_rect.width = gdk_pixbuf_get_width(icon);
+-        item->icon_rect.height = gdk_pixbuf_get_height(icon);
+-    }
+-    else
+-    {
+-        item->icon_rect.width = fm_config->big_icon_size;
+-        item->icon_rect.height = fm_config->big_icon_size;
+-    }
+-    item->icon_rect.x = item->area.x + (desktop->cell_w - item->icon_rect.width) / 2;
+-    item->icon_rect.y = item->area.y + desktop->ypad + (fm_config->big_icon_size - item->icon_rect.height) / 2;
+-    item->icon_rect.height += desktop->spacing; // FIXME: this is probably wrong
+ 
+     /* text label rect */
+     pango_layout_set_text(desktop->pl, NULL, 0);
+@@ -309,13 +316,13 @@
+     pango_layout_get_pixel_extents(desktop->pl, NULL, &rc2);
+     pango_layout_set_text(desktop->pl, NULL, 0);
+ 
+-    /* FIXME: RTL */
+-    item->text_rect.x = item->area.x + (desktop->cell_w - rc2.width - 4) / 2;
+-    item->text_rect.y = item->area.y + desktop->ypad + fm_config->big_icon_size + desktop->spacing;
+-    item->text_rect.width = rc2.width + 4;
+-    item->text_rect.height = rc2.y + rc2.height + 4;
+-    item->area.width = (desktop->cell_w + MAX(item->icon_rect.width, item->text_rect.width)) / 2;
+-    item->area.height = item->text_rect.y + item->text_rect.height - item->area.y;
++    EmwmMetrics metrics = {
++        desktop->cell_w, desktop->ypad, fm_config->big_icon_size, desktop->spacing,
++        icon ? gdk_pixbuf_get_width(icon) : fm_config->big_icon_size,
++        icon ? gdk_pixbuf_get_height(icon) : fm_config->big_icon_size,
++        rc2.width, rc2.height, rc2.y
++    };
++    set_geometry(item, emwm_icon_geometry(item->area.x, item->area.y, metrics));
+ }
+ 
+ /* unfortunately we cannot load the "*" together with items because
+@@ -377,11 +384,8 @@
+                 {
+                     gboolean was_right = g_key_file_get_boolean(kf, "*", "emwm_anchor_right", NULL);
+                     gint old_width = g_key_file_get_integer(kf, "*", "emwm_workarea_width", NULL);
+-                    if (was_right && old_width > 0)
+-                        item->area.x += desktop->working_area.width - old_width;
+-                    if (was_right != emwm_right)
+-                        item->area.x = 2 * desktop->working_area.x + desktop->working_area.width
+-                                     - item->area.x - desktop->cell_w;
++                    item->area.x = emwm_anchor_x(item->area.x, old_width, was_right,
++                        desktop->working_area, desktop->cell_w, emwm_right);
+                 }
+                 /* pull item into screen bounds */
+                 if (item->area.x < desktop->xmargin + desktop->working_area.x)
+@@ -560,9 +564,8 @@
+                     gint x = g_key_file_get_integer(saved, *group, "x", NULL);
+                     gint width = g_key_file_get_integer(saved, "*", "emwm_workarea_width", NULL);
+                     gboolean right = g_key_file_get_boolean(saved, "*", "emwm_anchor_right", NULL);
+-                    if (right && width > 0) x += desktop->working_area.width - width;
+-                    if (right != emwm_right)
+-                        x = 2 * desktop->working_area.x + desktop->working_area.width - x - desktop->cell_w;
++                    x = emwm_anchor_x(x, width, right, desktop->working_area,
++                                      desktop->cell_w, emwm_right);
+                     g_key_file_set_integer(current, *group, "x", x);
+                     g_key_file_set_integer(current, *group, "y", g_key_file_get_integer(saved, *group, "y", NULL));
+                 }
+@@ -1828,108 +1831,35 @@
+     gdk_rectangle_union(&item->icon_rect, &item->text_rect, rect);
+ }
+ 
+-static gboolean is_pos_occupied(FmDesktop* desktop, FmDesktopItem* item)
+-{
+-    GList* l;
+-    for(l = desktop->fixed_items; l; l=l->next)
+-    {
+-        FmDesktopItem* fixed = (FmDesktopItem*)l->data;
+-        GdkRectangle rect;
+-        get_item_rect(fixed, &rect);
+-        if(gdk_rectangle_intersect(&rect, &item->icon_rect, NULL)
+-         ||gdk_rectangle_intersect(&rect, &item->text_rect, NULL))
+-            return TRUE;
+-    }
+-    return FALSE;
+-}
+-
+ static void layout_items(FmDesktop* self)
+ {
+-    FmDesktopItem* item;
+-    GtkTreeModel* model = self->model ? GTK_TREE_MODEL(self->model) : NULL;
+-    GdkPixbuf* icon;
++    GtkTreeModel *model = self->model ? GTK_TREE_MODEL(self->model) : NULL;
+     GtkTreeIter it;
+-    int x, y, bottom;
+-    GtkTextDirection direction = emwm_layout ? (emwm_right ? GTK_TEXT_DIR_RTL : GTK_TEXT_DIR_LTR)
+-                                            : gtk_widget_get_direction(GTK_WIDGET(self));
+-
+-    y = self->ymargin;
+-    bottom = self->working_area.height - self->ymargin;
+-
+-    if(!model || !gtk_tree_model_get_iter_first(model, &it))
+-    {
+-        gtk_widget_queue_draw(GTK_WIDGET(self));
+-        return;
+-    }
+-    if(direction != GTK_TEXT_DIR_RTL) /* LTR or NONE */
+-    {
+-        x = self->xmargin;
+-        do
+-        {
+-            item = fm_folder_model_get_item_userdata(self->model, &it);
+-            icon = NULL;
++    if (model && gtk_tree_model_get_iter_first(model, &it))
++    {
++        GArray *items = g_array_new(FALSE, FALSE, sizeof(EmwmItem));
++        do {
++            FmDesktopItem *item = fm_folder_model_get_item_userdata(self->model, &it);
++            GdkPixbuf *icon = NULL;
++            EmwmItem entry = { .fixed = item->fixed_pos };
++            if (entry.fixed)
++                get_item_rect(item, &entry.old_bounds);
+             gtk_tree_model_get(model, &it, FM_FOLDER_MODEL_COL_ICON, &icon, -1);
+-            if(item->fixed_pos)
+-                calc_item_size(self, item, icon);
+-            else
+-            {
+-_next_position:
+-                item->area.x = self->working_area.x + x;
+-                item->area.y = self->working_area.y + y;
+-                calc_item_size(self, item, icon);
+-                /* check if item does not fit into space that left */
+-                if (item->area.y + item->area.height > bottom && y > self->ymargin)
+-                {
+-                    x += self->cell_w;
+-                    y = self->ymargin;
+-                    goto _next_position;
+-                }
+-                /* prepare position for next item */
+-                while (self->working_area.y + y < item->area.y + item->area.height)
+-                    y += self->cell_h;
+-                /* check if this position is occupied by a fixed item */
+-                if(is_pos_occupied(self, item))
+-                    goto _next_position;
+-            }
+-            if(icon)
+-                g_object_unref(icon);
+-        }
+-        while(gtk_tree_model_iter_next(model, &it));
+-    }
+-    else /* RTL */
+-    {
+-        x = self->working_area.width - self->xmargin - self->cell_w;
+-        do
+-        {
+-            item = fm_folder_model_get_item_userdata(self->model, &it);
+-            icon = NULL;
+-            gtk_tree_model_get(model, &it, FM_FOLDER_MODEL_COL_ICON, &icon, -1);
+-            if(item->fixed_pos)
+-                calc_item_size(self, item, icon);
+-            else
+-            {
+-_next_position_rtl:
+-                item->area.x = self->working_area.x + x;
+-                item->area.y = self->working_area.y + y;
+-                calc_item_size(self, item, icon);
+-                /* check if item does not fit into space that left */
+-                if (item->area.y + item->area.height > bottom && y > self->ymargin)
+-                {
+-                    x -= self->cell_w;
+-                    y = self->ymargin;
+-                    goto _next_position_rtl;
+-                }
+-                /* prepare position for next item */
+-                while (self->working_area.y + y < item->area.y + item->area.height)
+-                    y += self->cell_h;
+-                /* check if this position is occupied by a fixed item */
+-                if(is_pos_occupied(self, item))
+-                    goto _next_position_rtl;
+-            }
+-            if(icon)
+-                g_object_unref(icon);
+-        }
+-        while(gtk_tree_model_iter_next(model, &it));
++            calc_item_size(self, item, icon);
++            entry.geometry = item_geometry(item);
++            g_array_append_val(items, entry);
++            if (icon) g_object_unref(icon);
++        } while (gtk_tree_model_iter_next(model, &it));
++
++        emwm_layout_icons(desktop_grid(self), (EmwmItem *)items->data, items->len);
++        gtk_tree_model_get_iter_first(model, &it);
++        guint index = 0;
++        do {
++            FmDesktopItem *item = fm_folder_model_get_item_userdata(self->model, &it);
++            set_geometry(item, g_array_index(items, EmwmItem, index).geometry);
++            index++;
++        } while (gtk_tree_model_iter_next(model, &it));
++        g_array_free(items, TRUE);
+     }
+     gtk_widget_queue_draw(GTK_WIDGET(self));
+ }
+@@ -2061,33 +1991,13 @@
+ 
+ static void move_item(FmDesktop* desktop, FmDesktopItem* item, int x, int y, gboolean redraw)
+ {
+-    int dx, dy;
+     /* this call invalid the area occupied by the item and a redraw
+      * is queued. */
+     if(redraw)
+         redraw_item(desktop, item);
+ 
+-    /* correct coords to put item within working area still */
+-    if (x > desktop->working_area.x + desktop->working_area.width - desktop->xmargin - item->area.width)
+-        x = desktop->working_area.x + desktop->working_area.width - desktop->xmargin - item->area.width;
+-    if (x < desktop->working_area.x + desktop->xmargin)
+-        x = desktop->working_area.x + desktop->xmargin;
+-    if (y > desktop->working_area.y + desktop->working_area.height - desktop->ymargin - item->area.height)
+-        y = desktop->working_area.y + desktop->working_area.height - desktop->ymargin - item->area.height;
+-    if (y < desktop->working_area.y + desktop->ymargin)
+-        y = desktop->working_area.y + desktop->ymargin;
+-
+-    dx = x - item->area.x;
+-    dy = y - item->area.y;
+-
+-    item->area.x = x;
+-    item->area.y = y;
+-
+-    /* calc_item_size(desktop, item); */
+-    item->icon_rect.x += dx;
+-    item->icon_rect.y += dy;
+-    item->text_rect.x += dx;
+-    item->text_rect.y += dy;
++    set_geometry(item, emwm_move_icon(item_geometry(item), desktop->working_area,
++                                     desktop->xmargin, desktop->ymargin, x, y));
+ 
+     /* make the item use customized fixed position. */
+     if(!item->fixed_pos)
+@@ -2103,33 +2013,7 @@
+ 
+ static void calc_rubber_banding_rect(FmDesktop* self, int x, int y, GdkRectangle* rect)
+ {
+-    int x1, x2, y1, y2;
+-    if(self->drag_start_x < x)
+-    {
+-        x1 = self->drag_start_x;
+-        x2 = x;
+-    }
+-    else
+-    {
+-        x1 = x;
+-        x2 = self->drag_start_x;
+-    }
+-
+-    if(self->drag_start_y < y)
+-    {
+-        y1 = self->drag_start_y;
+-        y2 = y;
+-    }
+-    else
+-    {
+-        y1 = y;
+-        y2 = self->drag_start_y;
+-    }
+-
+-    rect->x = x1;
+-    rect->y = y1;
+-    rect->width = x2 - x1;
+-    rect->height = y2 - y1;
++    *rect = emwm_selection_rect(self->drag_start_x, self->drag_start_y, x, y);
+ }
+ 
+ static void update_rubberbanding(FmDesktop* self, int newx, int newy)
+@@ -2464,43 +2348,15 @@
+             cairo_fill(cr);
+         }
+ 
+-        switch(desktop->conf.wallpaper_mode)
+-        {
+-        case FM_WP_TILE:
+-            break;
+-        case FM_WP_STRETCH:
+-        case FM_WP_SCREEN:
+-            if(dest_w == src_w && dest_h == src_h)
+-                scaled = (GdkPixbuf*)g_object_ref(pix);
+-            else
+-                scaled = gdk_pixbuf_scale_simple(pix, dest_w, dest_h, GDK_INTERP_BILINEAR);
++        GdkRectangle paint = emwm_wallpaper_rect(desktop->conf.wallpaper_mode,
++            src_w, src_h, dest_w, dest_h, x, y);
++        x = paint.x;
++        y = paint.y;
++        if (paint.width != src_w || paint.height != src_h)
++        {
++            scaled = gdk_pixbuf_scale_simple(pix, paint.width, paint.height, GDK_INTERP_BILINEAR);
+             g_object_unref(pix);
+             pix = scaled;
+-            break;
+-        case FM_WP_FIT:
+-        case FM_WP_CROP:
+-            if(dest_w != src_w || dest_h != src_h)
+-            {
+-                gdouble w_ratio = (float)dest_w / src_w;
+-                gdouble h_ratio = (float)dest_h / src_h;
+-                gdouble ratio = (desktop->conf.wallpaper_mode == FM_WP_FIT)
+-                    ? MIN(w_ratio, h_ratio)
+-                    : MAX(w_ratio, h_ratio);
+-                if(ratio != 1.0)
+-                {
+-                    src_w *= ratio;
+-                    src_h *= ratio;
+-                    scaled = gdk_pixbuf_scale_simple(pix, src_w, src_h, GDK_INTERP_BILINEAR);
+-                    g_object_unref(pix);
+-                    pix = scaled;
+-                }
+-            }
+-            /* continue to execute code in case FM_WP_CENTER */
+-        case FM_WP_CENTER:
+-            x = (dest_w - src_w)/2;
+-            y = (dest_h - src_h)/2;
+-            break;
+-        case FM_WP_COLOR: ; /* handled above */
+         }
+         gdk_cairo_set_source_pixbuf(cr, pix, x, y);
+         cairo_paint(cr);
+@@ -3043,39 +2899,22 @@
+ }
+ #endif
+ 
+-/* round() is only available in C99. Don't use it now for portability. */
+-static inline double _round(double x)
+-{
+-    return (x > 0.0) ? floor(x + 0.5) : ceil(x - 0.5);
+-}
+-
+ static void on_snap_to_grid(GtkAction* act, gpointer user_data)
+ {
+     FmDesktop* desktop = FM_DESKTOP(user_data);
+     FmDesktopItem* item;
+     GList* items = get_selected_items(desktop, NULL);
+     GList* l;
+-    int x, y;
+-    GtkTextDirection direction = emwm_layout ? (emwm_right ? GTK_TEXT_DIR_RTL : GTK_TEXT_DIR_LTR)
+-                                            : gtk_widget_get_direction(GTK_WIDGET(desktop));
+-
+-    y = desktop->working_area.y + desktop->ymargin;
+-    //bottom = desktop->working_area.y + desktop->working_area.height - desktop->ymargin - desktop->cell_h;
+-
+-    if(direction != GTK_TEXT_DIR_RTL) /* LTR or NONE */
+-        x = desktop->working_area.x + desktop->xmargin;
+-    else /* RTL */
+-        x = desktop->working_area.x + desktop->working_area.width - desktop->xmargin - desktop->cell_w;
++    EmwmGrid grid = desktop_grid(desktop);
+ 
+     for(l = items; l; l = l->next)
+     {
+-        int new_x, new_y;
++        GdkPoint point;
+         item = (FmDesktopItem*)l->data;
+         if(!item->fixed_pos)
+             continue;
+-        new_x = x + _round((double)(item->area.x - x) / desktop->cell_w) * desktop->cell_w;
+-        new_y = y + _round((double)(item->area.y - y) / desktop->cell_h) * desktop->cell_h;
+-        move_item(desktop, item, new_x, new_y, FALSE);
++        point = emwm_snap_icon(grid, item->area.x, item->area.y);
++        move_item(desktop, item, point.x, point.y, FALSE);
+     }
+     g_list_free(items);
+ 
+@@ -3085,11 +2924,6 @@
+ 
+ /* ---------------------------------------------------------------------
+     GtkWidget class default signal handlers */
+-
+-static gboolean is_point_in_rect(GdkRectangle* rect, int x, int y)
+-{
+-    return x >= rect->x && x < (rect->x + rect->width) && y >= rect->y && y < (rect->y + rect->height);
+-}
+ 
+ static FmDesktopItem* hit_test(FmDesktop* self, GtkTreeIter *it, int x, int y)
+ {
+@@ -3101,17 +2935,11 @@
+     model = GTK_TREE_MODEL(self->model);
+     if(model && gtk_tree_model_get_iter_first(model, it)) do
+     {
+-        GdkRectangle icon_rect;
+         item = fm_folder_model_get_item_userdata(self->model, it);
+         /* we cannot drop dragged items onto themselves */
+         if (item->is_selected && self->dragging)
+             continue;
+-        /* SF bug #963: icon_rect and text_rect may be not contiguous,
+-           so let expand icon test area up to text_rect */
+-        icon_rect = item->icon_rect;
+-        icon_rect.height = item->text_rect.y - icon_rect.y;
+-        if(is_point_in_rect(&icon_rect, x, y)
+-         || is_point_in_rect(&item->text_rect, x, y))
++        if (emwm_icon_hit(item_geometry(item), x, y))
+             return item;
+     }
+     while(gtk_tree_model_iter_next(model, it));
+--- /dev/null
++++ b/src/emwm-layout.h
+@@ -0,0 +1,30 @@
++/* SPDX-License-Identifier: GPL-2.0-or-later */
++#ifndef EMWM_LAYOUT_H
++#define EMWM_LAYOUT_H
++
++#include <gdk/gdk.h>
++#include "app-config.h"
++
++typedef struct { GdkRectangle area, icon, text; } EmwmGeometry;
++typedef struct {
++    GdkRectangle work;
++    gint x_margin, y_margin, cell_width, cell_height, right;
++} EmwmGrid;
++typedef struct { EmwmGeometry geometry; GdkRectangle old_bounds; gint fixed; } EmwmItem;
++typedef struct {
++    gint cell_width, y_pad, icon_size, spacing;
++    gint pix_width, pix_height, label_width, label_height, label_y;
++} EmwmMetrics;
++
++void emwm_layout_icons(EmwmGrid grid, EmwmItem *items, gsize length);
++EmwmGeometry emwm_icon_geometry(gint x, gint y, EmwmMetrics metrics);
++gint emwm_anchor_x(gint x, gint old_width, gint was_right, GdkRectangle work, gint cell, gint right);
++GdkPoint emwm_snap_icon(EmwmGrid grid, gint x, gint y);
++EmwmGeometry emwm_move_icon(EmwmGeometry geometry, GdkRectangle work, gint x_margin, gint y_margin, gint x, gint y);
++GdkRectangle emwm_selection_rect(gint start_x, gint start_y, gint x, gint y);
++gint emwm_icon_hit(EmwmGeometry geometry, gint x, gint y);
++G_STATIC_ASSERT(FM_WP_STRETCH == 1 && FM_WP_FIT == 2 && FM_WP_CENTER == 3 &&
++                FM_WP_CROP == 5 && FM_WP_SCREEN == 6);
++GdkRectangle emwm_wallpaper_rect(gint mode, gint src_w, gint src_h, gint dest_w, gint dest_h, gint x, gint y);
++
++#endif

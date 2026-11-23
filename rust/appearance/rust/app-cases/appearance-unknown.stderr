@@ -1,0 +1,2 @@
+usage: gui.py [-h] [--session] [--list] [--effects] [--desktop] [--decoration]
+gui.py: error: unrecognized arguments: --invalid-option

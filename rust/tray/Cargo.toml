@@ -1,0 +1,18 @@
+[package]
+name = "emwm-tray"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.85"
+license = "MIT"
+publish = false
+
+[lib]
+crate-type = ["rlib", "staticlib"]
+
+[[bin]]
+name = "xmtray"
+path = "src/main.rs"
+
+[dependencies]
+libc = "0.2"
+x11 = { version = "2.21", features = ["xlib", "xrender", "xt"] }

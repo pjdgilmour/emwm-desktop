@@ -1,0 +1,11 @@
+[package]
+name = "emwm-monitor"
+version = "0.1.0"
+edition = "2021"
+license = "MIT AND LGPL-2.0-or-later"
+
+[lib]
+crate-type = ["staticlib"]
+
+[dependencies]
+x11 = { version = "2.21", features = ["xlib", "xrender"] }

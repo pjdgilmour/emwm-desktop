@@ -1,0 +1,328 @@
+#!/usr/bin/env python3
+# SPDX-License-Identifier: GPL-3.0-only
+"""Build a pinned EMWM Desktop .deb as the user; elevate only apt operations."""
+import argparse
+import hashlib
+import io
+import json
+import os
+from pathlib import Path
+import re
+import shutil
+import subprocess
+import sys
+import tarfile
+import tempfile
+import urllib.request
+
+ROOT = Path(__file__).resolve().parent.parent
+PREFIX = '/usr/lib/emwm-desktop'
+DATA = '/usr/share/emwm-desktop'
+BUILD_DEPS = [
+    'cargo', 'rustc',
+    'build-essential', 'git', 'patch', 'ca-certificates', 'python3', 'python3-pil', 'cmake', 'pkg-config',
+    'dpkg-dev', 'libmotif-dev', 'libx11-dev', 'libxt-dev', 'libxext-dev',
+    'libxrender-dev', 'libxrandr-dev', 'libxinerama-dev', 'libxss-dev',
+    'libxcomposite-dev', 'libxdamage-dev', 'libxfixes-dev', 'libgl-dev',
+    'autoconf', 'automake', 'libtool', 'intltool', 'libfm-gtk3-dev',
+    'libcrypt-dev', 'libgarcon-1-dev', 'libglib2.0-dev', 'libgtkmm-3.0-dev',
+]
+TEST_DEPS = ['xvfb', 'x11-xserver-utils', 'x11-utils', 'libxtst-dev',
+             'libxcomposite-dev', 'dbus-daemon', 'procps', 'pcmanfm', 'gvfs', 'xdg-user-dirs',
+             'fonts-liberation', 'xfonts-base', 'python3-gi', 'python3-gi-cairo', 'python3-pil', 'gir1.2-gtk-3.0', 'xsettingsd']
+RUNTIME = [
+    'xserver-xorg', 'xinit', 'x11-xserver-utils', 'x11-utils', 'xterm', 'pcmanfm',
+    'gvfs', 'xdg-user-dirs', 'mate-polkit', 'gnome-keyring', 'libpam-gnome-keyring',
+    'dbus-user-session', 'dbus-x11', 'xdg-utils', 'fonts-liberation', 'procps',
+    'python3-gi', 'python3-gi-cairo', 'python3-pil', 'gir1.2-gtk-3.0', 'xsettingsd', 'pkexec',
+]
+
+
+def run(args, cwd=None, capture=False, env=None):
+    print('+ ' + ' '.join(str(a) for a in args), flush=True)
+    return subprocess.run([str(a) for a in args], cwd=cwd, check=True, env=env,
+                          stdout=subprocess.PIPE if capture else None,
+                          text=True).stdout
+
+
+def debian_version():
+    values = {}
+    for line in Path('/etc/os-release').read_text().splitlines():
+        if '=' in line:
+            key, value = line.split('=', 1)
+            values[key] = value.strip('"')
+    if values.get('ID') != 'debian' or values.get('VERSION_ID') != '13':
+        raise RuntimeError('Esta versão do instalador foi preparada para Debian 13 (trixie).')
+
+
+def source_snapshot(name, spec, work, cache, local):
+    revision = spec['revision']
+    if not re.fullmatch(r'[0-9a-f]{40}', revision):
+        raise RuntimeError(f'Revisão inválida em sources.lock.json: {name}')
+    if local:
+        repo = local / name
+        run(['git', '-C', repo, 'cat-file', '-e', revision + '^{commit}'])
+    else:
+        repo = cache / (name + '.git')
+        if not repo.exists():
+            run(['git', 'init', '--bare', repo])
+        try:
+            run(['git', '-C', repo, 'fetch', '--depth=1', spec['url'], revision])
+        except subprocess.CalledProcessError as error:
+            raise RuntimeError(f'Não foi possível obter {name}@{revision}. '
+                               'Confirme que os commits dos forks já foram publicados; '
+                               'para testar antes do push, use --sources /diretorio/dos/repositorios.') from error
+    archive = subprocess.check_output(['git', '-C', str(repo), 'archive', revision])
+    dest = work / name
+    dest.mkdir()
+    with tarfile.open(fileobj=io.BytesIO(archive)) as stream:
+        stream.extractall(dest, filter='data')
+    return dest
+
+
+def copy(src, dest, mode=0o644):
+    dest.parent.mkdir(parents=True, exist_ok=True)
+    shutil.copyfile(src, dest)
+    dest.chmod(mode)
+
+
+def archive_snapshot(name, spec, work, cache):
+    archive = cache / spec['archive']
+    if not archive.exists():
+        with urllib.request.urlopen(spec['url'], timeout=60) as response:
+            data = response.read()
+        if hashlib.sha256(data).hexdigest() != spec['sha256']:
+            raise RuntimeError(f'Checksum inválido para {name}')
+        archive.write_bytes(data)
+    if hashlib.sha256(archive.read_bytes()).hexdigest() != spec['sha256']:
+        raise RuntimeError(f'Checksum inválido para {archive}')
+    with tarfile.open(archive) as stream:
+        stream.extractall(work, filter='data')
+    source = work / spec['directory']
+    source.rename(work / name)
+    return work / name
+
+
+def apply_patches(name, source):
+    for patch in sorted((ROOT / 'patches' / name).glob('*.patch')):
+        run(['patch', '--batch', '--forward', '--fuzz=0', '-p1', '-i', patch], cwd=source)
+
+
+def build(args):
+    version = (ROOT / 'VERSION').read_text().strip()
+    if not re.fullmatch(r'[0-9][0-9A-Za-z.+~:-]*', version):
+        raise RuntimeError('VERSION inválida.')
+    specs = json.loads((ROOT / 'sources.lock.json').read_text())
+    base = ROOT / 'build'
+    cache = base / 'cache'
+    cache.mkdir(parents=True, exist_ok=True)
+    dist = ROOT / 'dist'
+    dist.mkdir(exist_ok=True)
+    with tempfile.TemporaryDirectory(prefix='package-', dir=base) as temp:
+        work = Path(temp)
+        wm = source_snapshot('emwm', specs['emwm'], work, cache, args.sources)
+        utils = source_snapshot('emwm-utils', specs['emwm-utils'], work, cache, args.sources)
+        pcmanfm = archive_snapshot('pcmanfm', specs['pcmanfm'], work, cache)
+        for name, source in [('emwm', wm), ('emwm-utils', utils), ('pcmanfm', pcmanfm)]:
+            apply_patches(name, source)
+        # Archive the exact patched sources before any generated files or binaries.
+        source_tar = work / 'sources.tar.xz'
+        with tarfile.open(source_tar, 'w:xz') as archive:
+            archive.add(wm, arcname='emwm')
+            archive.add(utils, arcname='emwm-utils')
+            archive.add(pcmanfm, arcname='pcmanfm')
+            crate = 'rust/gradient-rs'
+            for item in ['Cargo.toml', 'Cargo.lock', 'src', 'python/gradient_rs/__init__.py']:
+                archive.add(ROOT / crate / item, arcname=f'emwm-desktop/{crate}/{item}')
+            for item in ['apps', 'third_party', 'scripts', 'session', 'config', 'packaging',
+                         'patches', 'tests', 'install.sh', 'VERSION', 'sources.lock.json',
+                         'README.md', 'THIRD_PARTY.md', 'LICENSE']:
+                archive.add(ROOT / item, arcname='emwm-desktop/' + item,
+                            filter=lambda member: None if '__pycache__' in member.name.split('/') else member)
+        # Always build clean source snapshots, never the user's working trees.
+        variables = [f'PREFIX={PREFIX}', f'RCDIR={DATA}', f'APPLRESDIR={DATA}/app-defaults']
+        for project in (wm, utils):
+            (project / 'src/Makefile').symlink_to('../mf/Makefile.Linux')
+        run(['make', '-C', 'src', '-j' + str(args.jobs), *variables], cwd=wm)
+        # Use logind-compatible systemctl instead of the obsolete pm-suspend.
+        # CPPFLAGS applies to the existing xmsm compilation rules.
+        run(['make', '-C', 'src', '-j' + str(args.jobs), *variables,
+             'CPPFLAGS=-DSUSPEND_CMD=\'"/usr/bin/systemctl suspend"\''], cwd=utils)
+        run(['sh', 'autogen.sh'], cwd=pcmanfm)
+        # Reuse the distribution's PCManFM data/translations; only the patched
+        # executable is private to EMWM. Other desktops keep /usr/bin/pcmanfm.
+        run(['./configure', '--prefix=/usr', '--with-gtk=3'], cwd=pcmanfm)
+        run(['make', '-C', 'src', '-j' + str(args.jobs)], cwd=pcmanfm)
+        tell = work / 'tellmwm'
+        shutil.copytree(ROOT / 'third_party/tellmwm', tell)
+        run(['make', '-j' + str(args.jobs)], cwd=tell)
+        wallpaper = work / 'wallpaper-build'
+        run(['cmake', '-S', ROOT / 'apps/emwm-wallpaper-tool', '-B', wallpaper,
+             '-DCMAKE_BUILD_TYPE=Release'])
+        run(['cmake', '--build', wallpaper, '-j', args.jobs])
+        run(['ctest', '--test-dir', wallpaper, '--output-on-failure'])
+        compositor = work / 'compositor-build'
+        run(['cmake', '-S', ROOT / 'apps/emwm-compositor', '-B', compositor,
+             '-DCMAKE_BUILD_TYPE=Release'])
+        run(['cmake', '--build', compositor, '-j', args.jobs])
+        run(['ctest', '--test-dir', compositor, '--output-on-failure'])
+        run([sys.executable, '-m', 'unittest', 'discover', '-s',
+             ROOT / 'apps/emwm-desktop-icons/tests', '-v'])
+        if args.test:
+            for backend in ['xrender', 'glx']:
+                run(['xvfb-run', '-a', compositor / 'test-render-effects', backend])
+            run(['make', 'test'], cwd=wm)
+            run(['make', 'test-argb'], cwd=wm,
+                env=dict(os.environ, EMWM_COMPOSITOR=str(compositor / 'emwm-compositor')))
+            run([sys.executable, ROOT / 'tests/native-desktop.py',
+                 '--wm', wm / 'src/emwm', '--compositor', compositor / 'emwm-compositor',
+                 '--file-manager', pcmanfm / 'src/pcmanfm'])
+            run([sys.executable, ROOT / 'tests/desktop-drag.py',
+                 '--wm', wm / 'src/emwm', '--compositor', compositor / 'emwm-compositor',
+                 '--file-manager', pcmanfm / 'src/pcmanfm'])
+            run([sys.executable, ROOT / 'tests/desktop-monitors.py',
+                 '--wm', wm / 'src/emwm', '--file-manager', pcmanfm / 'src/pcmanfm',
+                 '--tellmwm', tell / 'tellmwm'],
+                env=dict(os.environ, PATH=str(wallpaper) + os.pathsep + os.environ['PATH']))
+            run([sys.executable, ROOT / 'tests/monitor-layout.py',
+                 '--wm', wm / 'src/emwm', '--wallpaper', wallpaper / 'emwm-wallpaper-tool',
+                 '--toolbox', utils / 'src/xmtoolbox'])
+            run([sys.executable, ROOT / 'tests/title-gradient.py',
+                 '--wm', wm / 'src/emwm', '--compositor', compositor / 'emwm-compositor'])
+            run(['make', 'test-x11'], cwd=utils)
+            run(['sh', ROOT / 'tests/run-toolchest-tray.sh', utils])
+            env = dict(os.environ, EMWM_BINARY=str(wm / 'src/emwm'))
+            run(['cmake', '--build', wallpaper, '--target', 'test-x11'], env=env)
+        stage = work / 'debian/emwm-desktop'
+        appearance_dir = stage / PREFIX.lstrip('/') / 'appearance'
+        run(['sh', ROOT / 'scripts/build-gradient.sh', work / 'gradient-build', appearance_dir])
+        appearance_env = dict(os.environ, PYTHONPATH=str(appearance_dir), RUST_ANYTHING_MODE='new',
+                              PYTHONDONTWRITEBYTECODE='1')
+        run([sys.executable, '-m', 'unittest', 'discover', '-s',
+             ROOT / 'apps/emwm-appearance/tests', '-v'], env=appearance_env)
+        if args.test:
+            run(['sh', ROOT / 'apps/emwm-appearance/tests/run-x11.sh'], env=appearance_env)
+        bin_dir = stage / PREFIX.lstrip('/') / 'bin'
+        data_dir = stage / DATA.lstrip('/')
+        bins = {'emwm': wm / 'src/emwm', 'xmtoolbox': utils / 'src/xmtoolbox',
+                'xmtray': utils / 'src/xmtray', 'xmsm': utils / 'src/xmsm',
+                'xmsession': utils / 'src/xmsession', 'tellmwm': tell / 'tellmwm',
+                'emwm-wallpaper-tool': wallpaper / 'emwm-wallpaper-tool',
+                'emwm-compositor': compositor / 'emwm-compositor'}
+        bins['pcmanfm'] = pcmanfm / 'src/pcmanfm'
+        for name, src in bins.items():
+            copy(src, bin_dir / name, 0o4755 if name == 'xmsm' else 0o755)
+        copy(ROOT / 'apps/emwm-desktop-icons/emwm-desktop-icons', bin_dir / 'emwm-desktop-icons', 0o755)
+        for name, src in {'Emwm': wm / 'src/Emwm.ad', 'XmSm': utils / 'src/XmSm.ad',
+                          'XmToolbox': utils / 'src/XmToolbox.ad'}.items():
+            copy(src, data_dir / 'app-defaults' / name)
+        copy(wm / 'src/system.emwmrc', data_dir / 'system.emwmrc')
+        copy(utils / 'src/emwm-applications.menu', data_dir / 'emwm-applications.menu')
+        for src in (utils / 'src/desktop-directories').glob('*.directory'):
+            copy(src, data_dir / 'desktop-directories' / src.name)
+        for src in (ROOT / 'config').iterdir():
+            copy(src, data_dir / src.name)
+        appearance = ROOT / 'apps/emwm-appearance'
+        for name in ['core.py', 'gui.py', 'runtime.py', 'login_helper.py', 'wallpaper.py', 'wallpaper_ui.py', 'compositor.py', 'desktop.py', 'gradient.py']:
+            copy(appearance / name, appearance_dir / name)
+        copy(appearance / 'emwm-appearance', stage / 'usr/bin/emwm-appearance', 0o755)
+        copy(appearance / 'emwm-appearance', bin_dir / 'emwm-appearance', 0o755)
+        copy(appearance / 'emwm-appearance.desktop', stage / 'usr/share/applications/emwm-appearance.desktop')
+        copy(ROOT / 'session/emwm-desktop-session', stage / 'usr/bin/emwm-desktop-session', 0o755)
+        copy(ROOT / 'packaging/emwm-desktop.desktop', stage / 'usr/share/xsessions/emwm-desktop.desktop')
+        copy(ROOT / 'packaging/emwm-wallpaper-tool.desktop', stage / 'usr/share/applications/emwm-desktop-wallpaper.desktop')
+        manuals = [wm / 'src/emwm.1', wm / 'src/emwmrc.4', utils / 'src/xmtoolbox.1',
+                   utils / 'src/xmsm.1', utils / 'src/xmtray.1', tell / 'tellmwm.1']
+        for src in manuals:
+            copy(src, data_dir / 'man' / ('man' + src.suffix[1:]) / src.name)
+        doc = stage / 'usr/share/doc/emwm-desktop'
+        copy(ROOT / 'README.md', doc / 'README.md')
+        copy(ROOT / 'THIRD_PARTY.md', doc / 'copyright')
+        copy(ROOT / 'LICENSE', doc / 'licenses/emwm-desktop-GPL-3')
+        copy(wm / 'COPYING', doc / 'licenses/emwm-COPYING')
+        copy(utils / 'COPYING', doc / 'licenses/emwm-utils-COPYING')
+        copy(pcmanfm / 'COPYING', doc / 'licenses/pcmanfm-COPYING')
+        copy(ROOT / 'apps/emwm-compositor/COPYING.WindowMaker', doc / 'licenses/WindowMaker-GPL-2')
+        copy(ROOT / 'apps/emwm-compositor/README.md', doc / 'compositor.md')
+        copy(tell / 'COPYING', doc / 'licenses/tellmwm-COPYING')
+        copy(ROOT / 'sources.lock.json', doc / 'sources.lock.json')
+        copy(source_tar, doc / 'sources.tar.xz')
+        # Determine ABI dependencies from the actual build, including Debian t64 names.
+        debian = work / 'debian'
+        debian.mkdir(exist_ok=True)
+        (debian / 'control').write_text('Source: emwm-desktop\nSection: x11\nPriority: optional\n'
+            'Maintainer: pjdgilmour <paulogilmour@hotmail.com>\nStandards-Version: 4.7.0\n\n'
+            'Package: emwm-desktop\nArchitecture: any\nDescription: Classic Motif desktop\n')
+        elf = [bin_dir / name for name in bins if name != 'xmsession']
+        elf.append(appearance_dir / 'gradient_rs/_native.abi3.so')
+        deps = run(['dpkg-shlibdeps', '-O', *['-e' + str(path) for path in elf]], cwd=work, capture=True)
+        abi = next(line.split('=', 1)[1] for line in deps.splitlines() if line.startswith('shlibs:Depends='))
+        arch = run(['dpkg', '--print-architecture'], capture=True).strip()
+        control = stage / 'DEBIAN'
+        control.mkdir()
+        for script in ['postinst', 'postrm']:
+            copy(ROOT / 'packaging' / script, control / script, 0o755)
+        size = sum(p.stat().st_size for p in stage.rglob('*') if p.is_file()) // 1024
+        (control / 'control').write_text(
+            f'Package: emwm-desktop\nVersion: {version}\nArchitecture: {arch}\nSection: x11\nPriority: optional\n'
+            f'Maintainer: pjdgilmour <paulogilmour@hotmail.com>\nInstalled-Size: {size}\n'
+            f'Depends: {abi}, ' + ', '.join(RUNTIME) + '\n'
+            'Recommends: lightdm | x-display-manager, network-manager-gnome, pipewire-audio, pavucontrol\n'
+            'Homepage: https://github.com/pjdgilmour/emwm-desktop\n'
+            'Description: Classic Motif desktop with XDG menus and system tray\n'
+            ' Enhanced Motif Window Manager, Toolchest, xmtray and persistent wallpapers.\n'
+            ' Installed as a separate EMWM Desktop session with private executables.\n')
+        package = dist / f'emwm-desktop_{version}_{arch}.deb'
+        # Package permissions must not depend on the developer's umask.
+        stage.chmod(0o755)
+        for directory in stage.rglob('*'):
+            if directory.is_dir():
+                directory.chmod(0o755)
+        run(['dpkg-deb', '--root-owner-group', '--build', stage, package])
+        checksum = hashlib.sha256(package.read_bytes()).hexdigest()
+        package.with_suffix('.deb.sha256').write_text(f'{checksum}  {package.name}\n')
+        run(['dpkg-deb', '--info', package])
+        return package
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--build-only', action='store_true', help='Compilar o .deb sem apt, sudo ou instalação.')
+    parser.add_argument('--dependencies-only', action='store_true', help='Instalar apenas dependências de compilação.')
+    parser.add_argument('--sources', type=Path, help='Usar commits dos repositórios locais DIR/emwm e DIR/emwm-utils.')
+    parser.add_argument('--test', action='store_true', help='Executar também testes X11/ARGB em Xvfb.')
+    parser.add_argument('--yes', action='store_true', help='Passar -y ao apt-get.')
+    parser.add_argument('--jobs', type=int, default=min(os.cpu_count() or 1, 4))
+    args = parser.parse_args()
+    if args.jobs < 1 or args.jobs > 128:
+        parser.error('--jobs deve estar entre 1 e 128')
+    if args.build_only and args.dependencies_only:
+        parser.error('--build-only e --dependencies-only são mutuamente exclusivos')
+    if args.sources:
+        args.sources = args.sources.resolve()
+    debian_version()
+    if os.geteuid() == 0:
+        raise RuntimeError('Execute como usuário normal. O instalador usa sudo somente para apt.')
+    if not args.build_only:
+        yes = ['-y'] if args.yes else []
+        run(['sudo', 'apt-get', 'update'])
+        run(['sudo', 'apt-get', 'install', *yes, *BUILD_DEPS, *(TEST_DEPS if args.test else [])])
+    if args.dependencies_only:
+        return
+    package = build(args)
+    if args.test:
+        run([sys.executable, '-m', 'unittest', 'discover', '-s', ROOT / 'tests', '-v'])
+        run(['sh', ROOT / 'tests/smoke-session.sh', package])
+    if not args.build_only:
+        run(['sudo', 'apt-get', 'install', *(['-y'] if args.yes else []), package])
+        print('\nInstalado. Selecione EMWM Desktop na tela de login. A sessão atual foi preservada.')
+    else:
+        print(f'\nPacote gerado, sem instalação: {package}')
+
+
+if __name__ == '__main__':
+    try:
+        main()
+    except (RuntimeError, OSError, subprocess.CalledProcessError) as error:
+        print(f'Erro: {error}', file=sys.stderr)
+        sys.exit(1)

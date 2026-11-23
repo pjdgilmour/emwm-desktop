@@ -1,0 +1,4 @@
+bin.name = "tellmwm"
+args = ["backdrop", "ws0", "none"]
+status.code = 1
+fs.sandbox = true

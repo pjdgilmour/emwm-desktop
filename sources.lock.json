@@ -1,7 +1,7 @@
 {
   "emwm": {
     "url": "https://github.com/pjdgilmour/emwm.git",
-    "revision": "aca6f5afb1a50c65839427b9ffa5868341a2fbbf"
+    "revision": "a7e64441c931eba9aff786098aa30d36dac60811"
   },
   "emwm-utils": {
     "url": "https://github.com/pjdgilmour/emwm-utils.git",

@@ -1,0 +1,3 @@
+usage: install.py [-h] [--build-only] [--dependencies-only]
+                  [--sources SOURCES] [--test] [--yes] [--jobs JOBS]
+install.py: error: unrecognized arguments: --unknown

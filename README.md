@@ -15,7 +15,9 @@ licenças e créditos; consulte [THIRD_PARTY.md](THIRD_PARTY.md).
 
 ## Instalar no Debian 13
 
-Requisitos iniciais: Debian 13, usuário comum com acesso a `sudo`, Python 3 e Git.
+Requisitos iniciais: Debian 13 e uma conta de usuário com acesso a `sudo` e Git.
+O instalador usa Cargo e Rust 1.85 ou posterior. Na primeira instalação,
+`install.sh` pode obtê-los dos repositórios do Debian.
 Se necessário, instale `sudo git python3 ca-certificates` como administrador.
 A instalação precisa de acesso à internet e não deve ser executada como root.
 
@@ -61,7 +63,7 @@ O `xmsm` mantém a instalação setuid root usada pelo projeto original para blo
 de tela e operações da sessão. Os demais componentes rodam sem esse privilégio.
 O comando de suspensão é compilado como `systemctl suspend` no Debian.
 
-Dependências de execução incluem Motif, garcon/GLib, GTKmm para a ferramenta de
+Dependências de execução incluem Motif, garcon/GLib, GTK 3 para a ferramenta de
 fundos, Xorg, bibliotecas OpenGL/GLX e de composição X11, agente Polkit MATE,
 GNOME Keyring, XTerm, PCManFM, GVfs e xdg-user-dirs. Picom e xcompmgr não são
 necessários nem iniciados por esta versão.
@@ -84,6 +86,15 @@ Nenhuma saída de monitor, rotação, teclado ou tema GTK particular é imposta.
 A sessão lê seu `.Xprofile`, depois `session.conf`, e carrega os recursos X antes
 de iniciar o WM e os utilitários. Logs ficam em
 `~/.local/state/emwm-desktop/session.log` (ou em `XDG_STATE_HOME`).
+
+### Posicionamento de janelas
+
+Com uma janela em foco, **Super + ←** e **Super + →** encaixam a janela na metade
+correspondente do monitor. A partir dessa posição, **Super + ↑** ou **Super + ↓**
+selecionam um quarto da tela. Em uma janela flutuante, **Super + ↑** maximiza.
+**Super + ↓** restaura uma janela maximizada ou encaixada em um quarto.
+Os atalhos vêm em `system.emwmrc`. Quem usa um conjunto personalizado de teclas
+encontra as entradas `f.tile` no bloco `Keys DefaultKeyBindings` desse arquivo.
 
 ### Compositor próprio e efeitos
 
@@ -188,10 +199,11 @@ Para selecionar o fundo, use **Ambiente → Papel de parede** no Toolchest. O ca
 da imagem original é preservado para futuros ajustes. A ferramenta cria
 `~/.config/emwm/backdrops.resources` e uma inclusão em `.Xresources`, preservando
 seu conteúdo e criando backup antes da alteração. Há opções de ajustar sem recorte,
-preencher com recorte, esticar, centralizar e mosaico, com cor de fundo por workspace.
-Em **Configurar fundo por monitor…**, escolha imagens e modos independentes para
-cada saída. A orientação vertical é detectada via RandR; há também giro manual
-da imagem por monitor.
+preencher com recorte, esticar, centralizar e mosaico. Escolha os workspaces e,
+em **Configurar fundo por monitor…**, selecione a imagem, o modo e a cor para
+cada saída. A ferramenta recupera a antiga imagem geral para preencher monitores
+que ainda não tenham escolha própria. A orientação vertical é detectada via
+RandR e também há giro manual da imagem por monitor.
 As cópias preparadas ficam em `~/.config/emwm/wallpapers/` e são restauradas pelo
 EMWM no login. Com a área de trabalho ativa, os fundos são recompostos ao entrar
 na sessão e após mudanças nos monitores, preservando as escolhas das saídas
@@ -265,14 +277,15 @@ ambientes gráficos nem troca preferências globais.
 
 ## Estrutura e testes
 
-- `scripts/install.py`: obtenção dos fontes, compilação e montagem do pacote.
-- `session/`: inicializador independente.
+- `rust/desktop/` contém o instalador Debian, os pontos de entrada de sessão e o controlador dos ícones do PCManFM. `install.sh` e a entrada em `session/` iniciam esses executáveis.
+- `rust/appearance/` contém a ferramenta de aparência e o auxiliar de login.
+- `rust/compositor/` contém os renderizadores OpenGL/XRender e o loop de eventos do compositor.
+- `rust/wallpaper/` contém a interface GTK e a composição dos fundos por monitor.
+- `rust/trocacor/` contém a versão independente do editor de três cores de `apps/Troca_cor/`.
 - `config/`: padrões e exemplos genéricos.
 - `patches/`: alterações locais aplicadas aos snapshots fixados dos componentes.
-- `apps/emwm-wallpaper-tool/`: ferramenta de fundos.
-- `apps/emwm-compositor/`: compositor X11 próprio, OpenGL/XRender e efeitos.
-- `apps/emwm-desktop-icons/`: integração do desktop PCManFM, fundos e lixeira.
-- `third_party/tellmwm/`: cópia do tellmwm 1.2, com licença original.
+- `apps/` conserva os pontos de compilação CMake, referências e testes de comparação da migração.
+- `rust/tellmwm/` contém o cliente de workspaces. Os fontes de referência e a licença do tellmwm 1.2 ficam em `third_party/tellmwm/`.
 - `tests/`: verificações do pacote e da configuração.
 
 ```sh

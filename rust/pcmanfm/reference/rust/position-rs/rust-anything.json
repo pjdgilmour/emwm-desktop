@@ -1,0 +1,159 @@
+{
+  "schema": "rust-anything/bridge@1",
+  "root": "../..",
+  "unit": "position.c",
+  "language": "c",
+  "kind": "c-abi",
+  "crate_name": "position-rs",
+  "exports": [
+    {
+      "name": "anchor_x",
+      "file": "position.c",
+      "line": 9,
+      "params": [
+        {
+          "name": "x",
+          "ts_type": "int",
+          "optional": false,
+          "rest": false,
+          "native_type": "int"
+        },
+        {
+          "name": "old_width",
+          "ts_type": "int",
+          "optional": false,
+          "rest": false,
+          "native_type": "int"
+        },
+        {
+          "name": "was_right",
+          "ts_type": "int",
+          "optional": false,
+          "rest": false,
+          "native_type": "int"
+        },
+        {
+          "name": "origin",
+          "ts_type": "int",
+          "optional": false,
+          "rest": false,
+          "native_type": "int"
+        },
+        {
+          "name": "width",
+          "ts_type": "int",
+          "optional": false,
+          "rest": false,
+          "native_type": "int"
+        },
+        {
+          "name": "cell",
+          "ts_type": "int",
+          "optional": false,
+          "rest": false,
+          "native_type": "int"
+        },
+        {
+          "name": "right",
+          "ts_type": "int",
+          "optional": false,
+          "rest": false,
+          "native_type": "int"
+        }
+      ],
+      "returns": "int",
+      "is_async": false,
+      "is_generator": false,
+      "type_params": [],
+      "uses_instanceof": false,
+      "native_return": "int",
+      "prototype": "int anchor_x(int x, int old_width, int was_right, int origin, int width, int cell, int right)"
+    },
+    {
+      "name": "snap_axis",
+      "file": "position.c",
+      "line": 19,
+      "params": [
+        {
+          "name": "value",
+          "ts_type": "int",
+          "optional": false,
+          "rest": false,
+          "native_type": "int"
+        },
+        {
+          "name": "origin",
+          "ts_type": "int",
+          "optional": false,
+          "rest": false,
+          "native_type": "int"
+        },
+        {
+          "name": "cell",
+          "ts_type": "int",
+          "optional": false,
+          "rest": false,
+          "native_type": "int"
+        }
+      ],
+      "returns": "int",
+      "is_async": false,
+      "is_generator": false,
+      "type_params": [],
+      "uses_instanceof": false,
+      "native_return": "int",
+      "prototype": "int snap_axis(int value, int origin, int cell)"
+    },
+    {
+      "name": "drag_axis",
+      "file": "position.c",
+      "line": 27,
+      "params": [
+        {
+          "name": "value",
+          "ts_type": "int",
+          "optional": false,
+          "rest": false,
+          "native_type": "int"
+        },
+        {
+          "name": "origin",
+          "ts_type": "int",
+          "optional": false,
+          "rest": false,
+          "native_type": "int"
+        },
+        {
+          "name": "width",
+          "ts_type": "int",
+          "optional": false,
+          "rest": false,
+          "native_type": "int"
+        },
+        {
+          "name": "margin",
+          "ts_type": "int",
+          "optional": false,
+          "rest": false,
+          "native_type": "int"
+        },
+        {
+          "name": "item",
+          "ts_type": "int",
+          "optional": false,
+          "rest": false,
+          "native_type": "int"
+        }
+      ],
+      "returns": "int",
+      "is_async": false,
+      "is_generator": false,
+      "type_params": [],
+      "uses_instanceof": false,
+      "native_return": "int",
+      "prototype": "int drag_axis(int value, int origin, int width, int margin, int item)"
+    }
+  ],
+  "classes": [],
+  "js_only": []
+}

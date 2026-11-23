@@ -1,0 +1,152 @@
+{
+  "schema": "rust-anything/bridge@1",
+  "root": "../../../apps/emwm-appearance",
+  "unit": "core.py",
+  "language": "python",
+  "kind": "pyo3",
+  "crate_name": "appearance-core-rs",
+  "exports": [
+    {
+      "name": "palette_colors",
+      "file": "core.py",
+      "line": 33,
+      "params": [
+        {
+          "name": "name",
+          "ts_type": "unknown",
+          "optional": false,
+          "rest": false
+        }
+      ],
+      "returns": "unknown",
+      "is_async": false,
+      "is_generator": false,
+      "type_params": [],
+      "uses_instanceof": false
+    },
+    {
+      "name": "valid_name",
+      "file": "core.py",
+      "line": 40,
+      "params": [
+        {
+          "name": "value",
+          "ts_type": "unknown",
+          "optional": false,
+          "rest": false
+        }
+      ],
+      "returns": "unknown",
+      "is_async": false,
+      "is_generator": false,
+      "type_params": [],
+      "uses_instanceof": false
+    },
+    {
+      "name": "edit_ini",
+      "file": "core.py",
+      "line": 62,
+      "params": [
+        {
+          "name": "text",
+          "ts_type": "unknown",
+          "optional": false,
+          "rest": false
+        },
+        {
+          "name": "section",
+          "ts_type": "unknown",
+          "optional": false,
+          "rest": false
+        },
+        {
+          "name": "values",
+          "ts_type": "unknown",
+          "optional": false,
+          "rest": false
+        }
+      ],
+      "returns": "unknown",
+      "is_async": false,
+      "is_generator": false,
+      "type_params": [],
+      "uses_instanceof": false
+    },
+    {
+      "name": "managed_block",
+      "file": "core.py",
+      "line": 92,
+      "params": [
+        {
+          "name": "text",
+          "ts_type": "unknown",
+          "optional": false,
+          "rest": false
+        },
+        {
+          "name": "name",
+          "ts_type": "unknown",
+          "optional": false,
+          "rest": false
+        },
+        {
+          "name": "content",
+          "ts_type": "unknown",
+          "optional": false,
+          "rest": false
+        },
+        {
+          "name": "comment",
+          "ts_type": "string",
+          "optional": true,
+          "rest": false,
+          "default": "'#'"
+        }
+      ],
+      "returns": "unknown",
+      "is_async": false,
+      "is_generator": false,
+      "type_params": [],
+      "uses_instanceof": false
+    }
+  ],
+  "classes": [],
+  "js_only": [
+    {
+      "name": "read",
+      "file": "core.py",
+      "line": 46,
+      "reason": "pathlib filesystem helper"
+    },
+    {
+      "name": "ini_value",
+      "file": "core.py",
+      "line": 53,
+      "reason": "Python ConfigParser compatibility"
+    },
+    {
+      "name": "atomic_write",
+      "file": "core.py",
+      "line": 99,
+      "reason": "transactional filesystem writer"
+    },
+    {
+      "name": "detect_login",
+      "file": "core.py",
+      "line": 332,
+      "reason": "LightDM integration"
+    },
+    {
+      "name": "Theme",
+      "file": "core.py",
+      "line": 129,
+      "reason": "class: Python dataclass"
+    },
+    {
+      "name": "Settings",
+      "file": "core.py",
+      "line": 137,
+      "reason": "class: GTK integration"
+    }
+  ]
+}

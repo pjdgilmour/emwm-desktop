@@ -1,6 +1,6 @@
 # emwm-wallpaper-tool
 
-Aplicativo gráfico em C++17 com GTKmm 3 para configurar papéis de parede dos quatro workspaces do EMWM. Permite escolher imagens, posicionamento e cor de fundo por monitor e por workspace.
+Aplicativo gráfico em Rust com GTK 3 para configurar papéis de parede dos quatro workspaces do EMWM. Permite escolher imagens, posicionamento e cor de fundo por monitor e por workspace.
 
 Ao clicar em **Aplicar**, a ferramenta salva as escolhas em `~/.config/emwm/backdrops.resources`, inclui esse arquivo em `~/.Xresources` e aplica a imagem imediatamente com `tellmwm`. Também atualiza o banco de recursos do servidor X com `xrdb -merge`, para preservar a escolha ao reiniciar apenas o WM.
 
@@ -9,14 +9,14 @@ O EMWM restaura as imagens diretamente de seus recursos nativos no início da se
 ## Dependências e compilação
 
 ```bash
-sudo apt install build-essential cmake pkg-config libgtkmm-3.0-dev libx11-dev libxrandr-dev x11-xserver-utils
+sudo apt install cargo rustc build-essential cmake pkg-config libgtkmm-3.0-dev libx11-dev libxrandr-dev x11-xserver-utils
 cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
 cmake --build build -j2
 ctest --test-dir build --output-on-failure
 sudo cmake --install build
 ```
 
-Dependências de execução: GTKmm 3, libX11, libXrandr, `xrdb`, `tellmwm` do EMWM (aplicação imediata). A falta de `xrdb` ou uma falha no comando é informada; a configuração salva continua disponível para o próximo login.
+Dependências de execução: GTK 3, libX11, libXrandr, `xrdb`, `tellmwm` do EMWM (aplicação imediata). A falta de `xrdb` ou uma falha no comando é informada; a configuração salva continua disponível para o próximo login.
 
 Para instalar somente para seu usuário (sem senha de administrador):
 
@@ -28,7 +28,7 @@ Nesse caso, mantenha `~/.local/bin` antes de `/usr/local/bin` no PATH da sessão
 
 ## Utilização
 
-Execute `emwm-wallpaper-tool`, selecione uma imagem, o posicionamento e a cor de fundo e clique em **Aplicar**. É possível aplicar a mesma configuração aos quatro workspaces, alterar apenas um ou escolher imagens e modos diferentes para cada um. As escolhas salvas são recuperadas ao abrir a ferramenta.
+Execute `emwm-wallpaper-tool` e escolha quais workspaces quer alterar. Abra **Configurar fundo por monitor…** e selecione a imagem, o posicionamento e a cor para cada saída. Confirme em **Usar estes fundos** e clique em **Aplicar** na janela principal. **Cancelar** descarta a edição do diálogo. As escolhas salvas são recuperadas ao abrir a ferramenta.
 
 Modos disponíveis:
 
@@ -38,13 +38,11 @@ Modos disponíveis:
 - **Centralizar (tamanho original)**: centraliza sem redimensionar e recorta o que ultrapassar a tela.
 - **Mosaico (tile)**: repete a imagem no tamanho original, a partir do canto superior esquerdo; é o padrão das configurações antigas.
 
-A cor de fundo preenche as margens e as áreas transparentes. Por padrão, a imagem ocupa a área total da tela X11.
-
-Para escolher fundos diferentes, clique em **Configurar fundo por monitor…** no workspace desejado (ou na opção de todos os workspaces). Selecione uma imagem, posicionamento e cor para cada monitor e confirme em **Usar estes fundos**. A gravação e a aplicação acontecem somente no botão **Aplicar** da janela principal. **Cancelar** descarta as mudanças do diálogo; **Usar imagem única** volta ao fundo que ocupa toda a tela.
+A cor de cada monitor preenche as margens e as áreas transparentes. Ao abrir uma configuração antiga, a imagem geral, o posicionamento e a cor preenchem as saídas que ainda não têm escolha própria. Ao aplicar, cada saída conectada ganha sua configuração por monitor.
 
 Os monitores ativos são identificados pelo nome da saída (por exemplo, HDMI-1 e DP-1). A resolução, posição e rotação são detectadas via RandR. A opção **Automática** respeita as dimensões já orientadas pelo X11, inclusive monitores verticais, sem girar a imagem duas vezes. Também é possível girar a imagem 90°, 180° ou 270° dentro de cada monitor. Isso não altera a orientação física/configuração da saída no X11.
 
-A ferramenta compõe um único PNG com os fundos nas posições de cada monitor, compatível com o mecanismo nativo do EMWM. Monitores espelhados compartilham pixels e são apresentados como uma única área. Escolhas de monitores desconectados são conservadas. Uma saída nova usa a imagem geral como alternativa, quando definida; caso contrário, a ferramenta pede uma imagem para ela. Na área ativa do EMWM Desktop, mudanças de resolução, rotação ou disposição dos monitores provocam uma recomposição automática. O comando `emwm-wallpaper-tool --refresh-layout` também executa essa atualização sem abrir a interface; escolhas de saídas desconectadas são preservadas. Em instalações independentes sem esse controlador, aplique novamente pela ferramenta.
+A ferramenta compõe um único PNG com os fundos nas posições de cada monitor, compatível com o mecanismo nativo do EMWM. Monitores espelhados compartilham pixels e são apresentados como uma única área. Escolhas de monitores desconectados são conservadas. Uma saída nova pode herdar a imagem geral salva por uma versão anterior. Para configurar essa saída pela primeira vez, abra o editor por monitor. Na área ativa do EMWM Desktop, mudanças de resolução, rotação ou disposição dos monitores provocam uma recomposição automática. O comando `emwm-wallpaper-tool --refresh-layout` também executa essa atualização sem abrir a interface; escolhas de saídas desconectadas são preservadas. Em instalações independentes sem esse controlador, aplique novamente pela ferramenta.
 
 No login seguinte, a sessão precisa carregar `~/.Xresources` **antes** de iniciar o EMWM. O `xmsession` do emwm-utils já faz isso; nesta instalação, a entrada de sessão usa `Exec=/usr/bin/xmsession`.
 
@@ -54,9 +52,12 @@ Exemplo do arquivo gerenciado:
 
 ```text
 Emwm*ws0*backdrop*image: "/home/usuario/.config/emwm/wallpapers/<hash>.png"
-EmwmWallpaperTool.ws0.source: "/home/usuario/Imagens/fundo.jpg"
-EmwmWallpaperTool.ws0.mode: fit
-EmwmWallpaperTool.ws0.color: #000000
+EmwmWallpaperTool.ws0.monitorCount: 1
+EmwmWallpaperTool.ws0.monitor0.name: "HDMI-1"
+EmwmWallpaperTool.ws0.monitor0.source: "/home/usuario/Imagens/fundo.jpg"
+EmwmWallpaperTool.ws0.monitor0.mode: fit
+EmwmWallpaperTool.ws0.monitor0.color: #000000
+EmwmWallpaperTool.ws0.monitor0.rotation: auto
 ```
 
 A ferramenta mantém o diretório `~/.config/emwm` usado pela versão anterior. Caminhos são absolutos e escapados para os recursos X e para o protocolo do WM. Nomes com espaços, acentos, aspas e barras invertidas são suportados; nomes com quebras de linha ou espaço no final são rejeitados porque não podem ser representados fielmente pelo parser do EMWM.
@@ -91,3 +92,5 @@ EMWM_BINARY=/caminho/para/emwm cmake --build build --target test-x11
 ```
 
 Ele usa um servidor X privado e um HOME temporário. Verifica pixels do fundo após aplicação imediata, reinício do WM e recarga dos recursos simulando um novo login, inclusive para caminhos com caracteres especiais, os cinco modos de posicionamento e uma composição com monitor horizontal e vertical. A composição com múltiplos monitores é simulada; a detecção RandR é verificada no monitor virtual do Xvfb. Não altera a sessão gráfica em uso.
+
+O executável vem de `rust/wallpaper`. Com `rust-anything` disponível ao configurar o CMake, `cmake --build build --target test-cli-parity` compila a referência C++ e compara os resultados da CLI e os arquivos da migração. O alvo `test-x11` também exercita o diálogo GTK em Rust e compara os PNGs de cada posicionamento com a referência.

@@ -1,0 +1,24 @@
+PASS: default primary
+PASS: right anchor
+PASS: right drag
+PASS: mirror manual position
+PASS: explicit monitor A
+PASS: restore manual position
+PASS: left disconnected with nonzero origin
+PASS: login with left output absent
+PASS: remaining output moved to origin
+PASS: original arrangement restored
+PASS: disconnect fallback
+PASS: reconnect chosen monitor
+PASS: system primary change
+PASS: one icon set, live settings, mirrored DnD positions, wallpaper preservation, primary change and hotplug
+PASS: per-monitor wallpaper workspace 0
+PASS: per-monitor wallpaper workspace 1
+PASS: per-monitor wallpaper workspace 0
+PASS: wallpaper crop with left output absent and nonzero origin
+PASS: wallpaper after reconnect
+PASS: wallpaper after desktop rebuild
+PASS: wallpaper on a monitor without saved profile
+PASS: wallpaper after WM restart
+PASS: temporarily absent trash retains its manual position
+PASS: native wallpaper fallback without PCManFM

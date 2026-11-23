@@ -1,0 +1,9 @@
+{
+  "schema": "rust-anything/app-cases@1",
+  "name": "desktop-replay",
+  "run": [
+    "./tests/replay-desktop.py",
+    "/usr/lib/emwm-desktop/bin/pcmanfm"
+  ],
+  "timeout_secs": 90
+}

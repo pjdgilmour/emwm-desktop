@@ -1,0 +1,123 @@
+--- a/src/common.mf
++++ b/src/common.mf
+@@ -8,10 +8,8 @@
+ toolbox_libs = -lXm -lXt -lXrender -lXrandr -lX11 $(xdg_libs)
+ xmsm_libs = -lXm -lXt -lXss -lXrandr -lXinerama -lX11 $(SYSLIBS)
+ 
+-toolbox_objs = tbtray.o tbmain.o wswitch.o tbxdg.o tbxdgmenu.o
++toolbox_objs = tbmain.o wswitch.o tbxdg.o tbxdgmenu.o
+ xmsm_objs = smmain.o
+-tray_objs = tray.o
+-tray_libs = -lXm -lXt -lXrender -lX11
+ common_objs = common.o
+ 
+ app_defaults = XmSm.ad XmToolbox.ad
+@@ -19,9 +17,6 @@
+ executables = xmsm xmtoolbox xmsession xmtray
+ 
+ all: $(executables) $(app_defaults)
+-
+-tbtray.o: tray.c tray.h
+-	$(CC) $(CPPFLAGS) $(CFLAGS) -DTRAY_EMBEDDED -c tray.c -o $@
+ 
+ tbxdg.o: tbxdg.c tbxdg.h
+ 	$(CC) $(CPPFLAGS) $(CFLAGS) $(xdg_cflags) -c tbxdg.c -o $@
+@@ -36,11 +31,17 @@
+ $(config_lib): $(TOOLBOX_CONFIG_CRATE)/Cargo.toml $(TOOLBOX_CONFIG_CRATE)/Cargo.lock $(wildcard $(TOOLBOX_CONFIG_CRATE)/src/*.rs)
+ 	cargo build --locked --release --manifest-path "$(TOOLBOX_CONFIG_CRATE)/Cargo.toml" --target-dir "$(config_target)"
+ 
+-xmtoolbox: $(toolbox_objs) $(common_objs) $(config_lib)
+-	$(CC) -o $@ $(LDFLAGS) $(LIBDIRS) $(toolbox_objs) $(common_objs) $(config_lib) $(toolbox_libs) -ldl -lpthread -lm
++TRAY_CRATE ?= ../../emwm-desktop/rust/tray
++tray_lib = $(config_target)/release/libemwm_tray.a
+ 
+-xmtray: $(tray_objs)
+-	$(CC) -o $@ $(LDFLAGS) $(LIBDIRS) $(tray_objs) $(tray_libs)
++$(tray_lib): $(TRAY_CRATE)/Cargo.toml $(TRAY_CRATE)/Cargo.lock $(wildcard $(TRAY_CRATE)/src/*.rs)
++	cargo build --locked --release --manifest-path "$(TRAY_CRATE)/Cargo.toml" --target-dir "$(config_target)"
++
++xmtoolbox: $(toolbox_objs) $(common_objs) $(config_lib) $(tray_lib)
++	$(CC) -o $@ $(LDFLAGS) $(LIBDIRS) $(toolbox_objs) $(common_objs) $(config_lib) $(tray_lib) $(toolbox_libs) -ldl -lpthread -lm
++
++xmtray: $(tray_lib)
++	cp "$(config_target)/release/xmtray" "$@"
+ 
+ xmsm: $(xmsm_objs) $(common_objs)
+ 	$(CC) -o $@ $(LDFLAGS) $(LIBDIRS) $(xmsm_objs) $(common_objs) $(xmsm_libs)
+@@ -89,9 +90,9 @@
+ 	rmdir $(RCDIR)
+ 
+ clean:
+-	-rm -f "$(config_lib)"
+-	-rm $(toolbox_objs) $(xmsm_objs) $(common_objs) $(tray_objs) $(executables) $(app_defaults)
++	-rm -f "$(config_lib)" "$(tray_lib)"
++	-rm $(toolbox_objs) $(xmsm_objs) $(common_objs) $(executables) $(app_defaults)
+ 	-rm .depend
+ 
+ .depend:
+-	$(CC) -MM $(INCDIRS) $(xdg_cflags) $(filter-out tbtray.c,$(toolbox_objs:.o=.c)) $(xmsm_objs:.o=.c) $(common_objs:.o=.c) $(tray_objs:.o=.c) > $@
++	$(CC) -MM $(INCDIRS) $(xdg_cflags) $(toolbox_objs:.o=.c) $(xmsm_objs:.o=.c) $(common_objs:.o=.c) > $@
+--- a/tests/run.sh
++++ b/tests/run.sh
+@@ -3,7 +3,8 @@
+ cd "$(dirname "$0")/.."
+ if [ "${1:-}" = "--x11" ]; then
+     config_lib="$PWD/src/rust-target/release/libemwm_toolbox_config.a"
+-    make -C src -f ../mf/Makefile.Linux "$config_lib"
++    tray_lib="$PWD/src/rust-target/release/libemwm_tray.a"
++    make -C src -f ../mf/Makefile.Linux "$config_lib" "$tray_lib"
+ fi
+ work=$(mktemp -d)
+ xpid=
+@@ -40,8 +41,8 @@
+     ${CC:-cc} ${CPPFLAGS:-} ${CFLAGS:--O2 -Wall} -Isrc \
+         -DPREFIX='"/usr"' -DRCDIR='"/etc/X11"' \
+         $(${PKG_CONFIG:-pkg-config} --cflags garcon-1 gio-unix-2.0) \
+-        -DTRAY_EMBEDDED src/tray.c tests/motif.c src/tbxdg.c src/tbxdgmenu.c src/common.c src/wswitch.c \
+-        -o "$work/test-motif" "$config_lib" -ldl -lpthread -lm ${LDFLAGS:-} -lXm -lXt -lXrandr -lXrender -lX11 -lXtst \
++        tests/motif.c src/tbxdg.c src/tbxdgmenu.c src/common.c src/wswitch.c \
++        -o "$work/test-motif" "$config_lib" "$tray_lib" -ldl -lpthread -lm ${LDFLAGS:-} -lXm -lXt -lXrandr -lXrender -lX11 -lXtst \
+         $(${PKG_CONFIG:-pkg-config} --libs garcon-1 gio-unix-2.0)
+     ${XVFB:-Xvfb} -displayfd 3 -screen 0 1024x768x24 -nolisten tcp \
+         3>"$work/display" >"$work/xvfb.log" 2>&1 &
+--- a/tests/run-tray.sh
++++ b/tests/run-tray.sh
+@@ -10,9 +10,7 @@
+ }
+ trap cleanup EXIT
+ trap 'exit 1' INT TERM HUP
+-# Compiler flag variables deliberately expand into individual arguments.
+-# shellcheck disable=SC2086
+-${CC:-cc} ${CPPFLAGS:-} ${CFLAGS:--O2 -Wall -Wextra} src/tray.c -o "$work/xmtray" ${LDFLAGS:-} -lXm -lXt -lX11 -lXrender
++make -C src -f ../mf/Makefile.Linux xmtray
+ # Compiler flag variables deliberately expand into individual arguments.
+ # shellcheck disable=SC2086
+ ${CC:-cc} ${CPPFLAGS:-} ${CFLAGS:--O2 -Wall -Wextra} tests/tray.c -o "$work/test-tray" ${LDFLAGS:-} -lX11 -lXtst
+@@ -24,4 +22,4 @@
+ export DISPLAY HOME="$work" XENVIRONMENT="$work/empty"
+ unset SESSION_MANAGER
+ : >"$XENVIRONMENT"
+-"$work/test-tray" "$work/xmtray"
++"$work/test-tray" "$PWD/src/xmtray"
+--- a/tests/run-tray-toolkits.sh
++++ b/tests/run-tray-toolkits.sh
+@@ -15,9 +15,7 @@
+ }
+ trap 'cleanup $?' EXIT
+ trap 'exit 1' INT TERM HUP
+-# Compiler flag variables deliberately expand into individual arguments.
+-# shellcheck disable=SC2086
+-${CC:-cc} ${CPPFLAGS:-} ${CFLAGS:--O2 -Wall -Wextra} src/tray.c -o "$work/xmtray" ${LDFLAGS:-} -lXm -lXt -lX11 -lXrender
++make -C src -f ../mf/Makefile.Linux xmtray
+ # Compiler flag variables deliberately expand into individual arguments.
+ # shellcheck disable=SC2086
+ ${CC:-cc} ${CPPFLAGS:-} ${CFLAGS:--O2 -Wall -Wextra} tests/tray-toolkits.c -o "$work/test-toolkits" ${LDFLAGS:-} -lX11 -lXtst
+@@ -35,7 +33,7 @@
+     wmpid=$!
+     sleep .5
+ fi
+-"$work/xmtray" -geometry +50+50 >"$work/tray.log" 2>&1 &
++"$PWD/src/xmtray" -geometry +50+50 >"$work/tray.log" 2>&1 &
+ tpid=$!
+ /usr/bin/python3 tests/tray-toolkits.py gtk >"$work/gtk.log" 2>&1 &
+ gpid=$!

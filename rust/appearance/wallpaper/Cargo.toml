@@ -1,0 +1,13 @@
+[package]
+name = "appearance-wallpaper-rs"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.85"
+license = "GPL-3.0-only"
+publish = false
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+pyo3 = { version = "0.30", features = ["extension-module", "abi3-py310"] }

@@ -1,0 +1,5 @@
+bin.name = "tellmwm"
+args = ["-v"]
+env.add.DISPLAY = ""
+status.code = 1
+fs.sandbox = true

@@ -1,0 +1,11 @@
+{"fn": "validate", "args": [{}]}
+{"fn": "validate", "args": [[]]}
+{"fn": "validate", "args": [null]}
+{"fn": "validate", "args": [{}]}
+{"fn": "validate", "args": [{"unrecognized": 1}]}
+{"fn": "validate", "args": [{"monitor": "XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX"}]}
+{"fn": "validate", "args": [{"monitor": "ááááááááááááááááááááááááááááááááááááááááááááááááááááááááááááááááááááááááááááááááááááááááááááááááááááááááááááááááááááááááááááááááááááááááááááááááááááááááááááááááááááááááááááááááááááááááááááááááááááááááááááááááááááááááááááááááááááááááááááááááááááááááááááááááá"}]}
+{"fn": "validate", "args": [{"monitor": "DP-1\nother=x"}]}
+{"fn": "validate", "args": [{"monitor": 1}]}
+{"fn": "validate", "args": [{"anchor": "center"}]}
+{"fn": "validate", "args": [{"monitor": "DP-1", "anchor": "right"}]}

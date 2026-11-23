@@ -1,0 +1,55 @@
+{
+  "schema": "rust-anything/bridge@1",
+  "root": "../../apps/emwm-appearance",
+  "unit": "gradient.py",
+  "language": "python",
+  "kind": "pyo3",
+  "crate_name": "gradient-rs",
+  "exports": [
+    {
+      "name": "validate",
+      "file": "gradient.py",
+      "line": 13,
+      "params": [
+        {
+          "name": "values",
+          "ts_type": "unknown",
+          "optional": false,
+          "rest": false
+        }
+      ],
+      "returns": "unknown",
+      "is_async": false,
+      "is_generator": false,
+      "type_params": [],
+      "uses_instanceof": false
+    },
+    {
+      "name": "resources",
+      "file": "gradient.py",
+      "line": 28,
+      "params": [
+        {
+          "name": "values",
+          "ts_type": "unknown",
+          "optional": false,
+          "rest": false
+        }
+      ],
+      "returns": "unknown",
+      "is_async": false,
+      "is_generator": false,
+      "type_params": [],
+      "uses_instanceof": false
+    }
+  ],
+  "classes": [],
+  "js_only": [
+    {
+      "name": "Controls",
+      "file": "gradient.py",
+      "line": 32,
+      "reason": "class: GTK interface"
+    }
+  ]
+}

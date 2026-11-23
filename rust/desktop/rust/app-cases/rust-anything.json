@@ -1,0 +1,9 @@
+{
+  "schema": "rust-anything/app-cases@1",
+  "name": "emwm-install",
+  "run": [
+    "python3",
+    "reference/install.py"
+  ],
+  "timeout_secs": 30
+}

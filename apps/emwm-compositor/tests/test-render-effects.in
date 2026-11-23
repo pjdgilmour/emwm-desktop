@@ -1,0 +1,5 @@
+#!/bin/sh
+set -eu
+case "${1:-}" in glx|xrender) ;; *) echo 'specify glx or xrender' >&2; exit 2;; esac
+export EMWM_PIXEL_TEST_BACKEND="$1"
+exec "@CARGO@" test --release --locked --manifest-path "@crate@/Cargo.toml" --target-dir "@target_dir@" -- --ignored --exact pixel_tests::renderer_pixels --nocapture

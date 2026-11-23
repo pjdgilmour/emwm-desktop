@@ -1,0 +1,14 @@
+[package]
+name = "emwm-wallpaper-tool"
+version = "1.0.0"
+edition = "2021"
+rust-version = "1.85"
+publish = false
+license = "GPL-3.0-only"
+
+[dependencies]
+gtk = "0.18"
+gdk-pixbuf = "0.18"
+glib = { version = "0.18", features = ["v2_66"] }
+x11 = { version = "2.21", features = ["xlib", "xrandr"] }
+tempfile = "3"

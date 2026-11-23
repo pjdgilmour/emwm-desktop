@@ -1,0 +1,94 @@
+--- a/src/common.mf
++++ b/src/common.mf
+@@ -8,7 +8,7 @@
+ toolbox_libs = -lXm -lXt -lXrender -lXrandr -lX11 $(xdg_libs)
+ xmsm_libs = -lXm -lXt -lXss -lXrandr -lXinerama -lX11 $(SYSLIBS)
+ 
+-toolbox_objs = tbtray.o tbmain.o tbparse.o wswitch.o tbxdg.o tbxdgmenu.o
++toolbox_objs = tbtray.o tbmain.o wswitch.o tbxdg.o tbxdgmenu.o
+ xmsm_objs = smmain.o
+ tray_objs = tray.o
+ tray_libs = -lXm -lXt -lXrender -lX11
+@@ -29,8 +29,15 @@
+ tbxdgmenu.o: tbxdgmenu.c tbxdgmenu.h tbxdg.h
+ 	$(CC) $(CPPFLAGS) $(CFLAGS) $(xdg_cflags) -c tbxdgmenu.c -o $@
+ 
+-xmtoolbox: $(toolbox_objs) $(common_objs)
+-	$(CC) -o $@ $(LDFLAGS) $(LIBDIRS) $(toolbox_objs) $(common_objs) $(toolbox_libs)
++TOOLBOX_CONFIG_CRATE ?= ../../emwm-desktop/rust/emwm-utils
++config_target = $(CURDIR)/rust-target
++config_lib = $(config_target)/release/libemwm_toolbox_config.a
++
++$(config_lib): $(TOOLBOX_CONFIG_CRATE)/Cargo.toml $(TOOLBOX_CONFIG_CRATE)/Cargo.lock $(wildcard $(TOOLBOX_CONFIG_CRATE)/src/*.rs)
++	cargo build --locked --release --manifest-path "$(TOOLBOX_CONFIG_CRATE)/Cargo.toml" --target-dir "$(config_target)"
++
++xmtoolbox: $(toolbox_objs) $(common_objs) $(config_lib)
++	$(CC) -o $@ $(LDFLAGS) $(LIBDIRS) $(toolbox_objs) $(common_objs) $(config_lib) $(toolbox_libs) -ldl -lpthread -lm
+ 
+ xmtray: $(tray_objs)
+ 	$(CC) -o $@ $(LDFLAGS) $(LIBDIRS) $(tray_objs) $(tray_libs)
+@@ -82,6 +89,7 @@
+ 	rmdir $(RCDIR)
+ 
+ clean:
++	-rm -f "$(config_lib)"
+ 	-rm $(toolbox_objs) $(xmsm_objs) $(common_objs) $(tray_objs) $(executables) $(app_defaults)
+ 	-rm .depend
+ 
+--- a/src/tbmain.c
++++ b/src/tbmain.c
+@@ -76,6 +76,10 @@
+ static Boolean message_dialog(Boolean,const char*);
+ static void exec_cb(Widget,XtPointer,XtPointer);
+ static void exec_dialog_cb(Widget,XtPointer,XtPointer);
++static void free_menu_command(Widget widget, XtPointer data, XtPointer event)
++{
++	XtFree((char *)data);
++}
+ static void menu_command_cb(Widget,XtPointer,XtPointer);
+ static void message_dialog_cb(Widget,XtPointer,XtPointer);
+ static void sigchld_handler(int);
+@@ -773,8 +777,10 @@
+ 			XtManageChild(new_cascade);
+ 		
+ 		}else if(cur->type == TBE_COMMAND){
++			/* Xt may defer widget destruction across a config reload. */
++			char *command = XtNewString(cur->command);
+ 			XtCallbackRec push_callback[]={
+-				{ (XtCallbackProc)menu_command_cb, (XtPointer)cur->command},
++				{ (XtCallbackProc)menu_command_cb, (XtPointer)command},
+ 				{ (XtCallbackProc)NULL, (XtPointer)NULL}
+ 			};
+ 			#ifdef DEBUG_MENU
+@@ -792,6 +798,7 @@
+ 			XtSetArg(args[n], XmNactivateCallback, push_callback); n++;
+ 			w = XmCreatePushButtonGadget(
+ 				wlevel[cur->level], "menuButton",args,n);
++			XtAddCallback(w, XmNdestroyCallback, free_menu_command, command);
+ 
+ 			XmStringFree(title);
+ 			XtManageChild(w);
+--- a/tests/run.sh
++++ b/tests/run.sh
+@@ -1,6 +1,10 @@
+ #!/bin/sh
+ set -eu
+ cd "$(dirname "$0")/.."
++if [ "${1:-}" = "--x11" ]; then
++    config_lib="$PWD/src/rust-target/release/libemwm_toolbox_config.a"
++    make -C src -f ../mf/Makefile.Linux "$config_lib"
++fi
+ work=$(mktemp -d)
+ xpid=
+ cleanup() {
+@@ -36,8 +40,8 @@
+     ${CC:-cc} ${CPPFLAGS:-} ${CFLAGS:--O2 -Wall} -Isrc \
+         -DPREFIX='"/usr"' -DRCDIR='"/etc/X11"' \
+         $(${PKG_CONFIG:-pkg-config} --cflags garcon-1 gio-unix-2.0) \
+-        -DTRAY_EMBEDDED src/tray.c tests/motif.c src/tbxdg.c src/tbxdgmenu.c src/tbparse.c src/common.c src/wswitch.c \
+-        -o "$work/test-motif" ${LDFLAGS:-} -lXm -lXt -lXrandr -lXrender -lX11 -lXtst \
++        -DTRAY_EMBEDDED src/tray.c tests/motif.c src/tbxdg.c src/tbxdgmenu.c src/common.c src/wswitch.c \
++        -o "$work/test-motif" "$config_lib" -ldl -lpthread -lm ${LDFLAGS:-} -lXm -lXt -lXrandr -lXrender -lX11 -lXtst \
+         $(${PKG_CONFIG:-pkg-config} --libs garcon-1 gio-unix-2.0)
+     ${XVFB:-Xvfb} -displayfd 3 -screen 0 1024x768x24 -nolisten tcp \
+         3>"$work/display" >"$work/xvfb.log" 2>&1 &

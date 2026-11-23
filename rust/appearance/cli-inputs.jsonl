@@ -1,0 +1,3 @@
+{"name":"appearance-help","args":["--help"]}
+{"name":"appearance-unknown","args":["--invalid-option"]}
+{"name":"appearance-empty-session","args":["--session"],"env":{"HOME":".","XDG_CONFIG_HOME":"empty-config","XDG_STATE_HOME":"empty-state"}}

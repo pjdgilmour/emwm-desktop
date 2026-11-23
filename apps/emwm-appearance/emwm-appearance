@@ -1,5 +1,8 @@
 #!/bin/sh
-# A previous per-user install must not mask the desktop package's current UI.
+# The desktop package takes precedence over older per-user installations.
+if [ -x /usr/lib/emwm-desktop/appearance/emwm-appearance ]; then
+    exec /usr/lib/emwm-desktop/appearance/emwm-appearance "$@"
+fi
 if [ -f /usr/lib/emwm-desktop/appearance/gui.py ]; then
     exec /usr/bin/python3 /usr/lib/emwm-desktop/appearance/gui.py "$@"
 fi

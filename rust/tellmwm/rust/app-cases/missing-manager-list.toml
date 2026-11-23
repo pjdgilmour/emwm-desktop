@@ -1,0 +1,4 @@
+bin.name = "tellmwm"
+args = []
+status.code = 1
+fs.sandbox = true

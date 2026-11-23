@@ -361,3 +361,26 @@ def detect_login(root=Path('/'), seat=None):
     result['greeter'] = command or greeter
     result['supported'] = command == 'lightdm-gtk-greeter'
     return result
+
+
+def native_unit(unit):
+    """Load the installed Rust implementation or use a source checkout's reference."""
+    from importlib import import_module
+    switch = 'RUST_ANYTHING_UNIT_APPEARANCE_' + unit.upper()
+    if os.environ.get(switch) == 'original':
+        return None
+    name = f'appearance_{unit}_rs'
+    try:
+        return import_module(name)
+    except ModuleNotFoundError as error:
+        if error.name != name or os.environ.get('RUST_ANYTHING_MODE') == 'new':
+            raise
+        return None
+
+
+_native = native_unit('core')
+if _native is not None:
+    palette_colors = _native.palette_colors
+    valid_name = _native.valid_name
+    edit_ini = _native.edit_ini
+    managed_block = _native.managed_block

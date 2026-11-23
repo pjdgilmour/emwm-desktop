@@ -1,0 +1,32 @@
+{"fn": "palette_colors", "args": ["irix"]}
+{"fn": "palette_colors", "args": ["classic"]}
+{"fn": "palette_colors", "args": ["custom"]}
+{"fn": "palette_colors", "args": ["keep"]}
+{"fn": "palette_colors", "args": ["bad"]}
+{"fn": "palette_colors", "args": [{}]}
+{"fn": "palette_colors", "args": [[]]}
+{"fn": "valid_name", "args": [null]}
+{"fn": "valid_name", "args": [0]}
+{"fn": "valid_name", "args": [""]}
+{"fn": "valid_name", "args": ["A"]}
+{"fn": "valid_name", "args": [".."]}
+{"fn": "valid_name", "args": ["."]}
+{"fn": "valid_name", "args": ["Ícones GTK 3"]}
+{"fn": "valid_name", "args": ["a/b"]}
+{"fn": "valid_name", "args": ["a\\b"]}
+{"fn": "valid_name", "args": ["x\t"]}
+{"fn": "valid_name", "args": ["aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"]}
+{"fn": "valid_name", "args": ["🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵"]}
+{"fn": "edit_ini", "args": ["", "greeter", {"theme-name": "New", "cursor": "Ícones"}]}
+{"fn": "edit_ini", "args": ["# No section", "greeter", {"theme-name": "New", "cursor": "Ícones"}]}
+{"fn": "edit_ini", "args": ["[greeter]\ntheme-name=old\nTheme-Name=other\n", "greeter", {"theme-name": "New", "cursor": "Ícones"}]}
+{"fn": "edit_ini", "args": ["[greeter]\r\nOther=1\r\n[Seat:*]\n", "greeter", {"theme-name": "New", "cursor": "Ícones"}]}
+{"fn": "edit_ini", "args": ["[greeter]\n[greeter]\n[other]", "greeter", {"theme-name": "New", "cursor": "Ícones"}]}
+{"fn": "edit_ini", "args": ["[other]\n;Hi\n[greeter]\ntheme-name = X\n;keep\n", "greeter", {"theme-name": "New", "cursor": "Ícones"}]}
+{"fn": "edit_ini", "args": ["[greeter]\na=b other=x", "greeter", {"theme-name": "New", "cursor": "Ícones"}]}
+{"fn": "managed_block", "args": ["", "T", "X\n", "!"]}
+{"fn": "managed_block", "args": ["X\n", "T", "X\n", "!"]}
+{"fn": "managed_block", "args": ["A\n! BEGIN T\nold\n! END T\nX", "T", "X\n", "!"]}
+{"fn": "managed_block", "args": ["! BEGIN T\nno end\n", "T", "X\n", "!"]}
+{"fn": "managed_block", "args": ["! BEGIN T\n! END T\n! BEGIN T\n! END T\n", "T", "X\n", "!"]}
+{"fn": "managed_block", "args": ["! BEGIN T\n! END Ttail", "T", "X\n", "!"]}

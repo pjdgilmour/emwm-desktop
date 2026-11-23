@@ -1,0 +1,10 @@
+tellmwm v1.2 - http://fastestcode.org/emwm.html
+
+Usage: tellmwm [<command> <arguments>]
+Commands and arguments (see man 1 tellmwm for more info):
+	backdrop <workspace ID> [-f <color> -b <color>] [<image name> | none]
+	setws    <workspace ID>
+	addws    [<title>]
+	namews   <workspace ID> <title>
+	delws    <workspace ID>
+If no command is specified, current configuration will be printed.

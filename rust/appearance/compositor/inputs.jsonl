@@ -1,0 +1,44 @@
+{"fn": "validate", "args": [{}]}
+{"fn": "validate", "args": [{"backend": "glx", "effect": "twist"}]}
+{"fn": "validate", "args": [{"backend": "xrender", "effect": "none"}]}
+{"fn": "validate", "args": [{"future": "ignored"}]}
+{"fn": "validate", "args": [{"shadows": 1}]}
+{"fn": "validate", "args": [{"vsync": "false"}]}
+{"fn": "validate", "args": [{"shadow_opacity": null}]}
+{"fn": "validate", "args": [{"shadow_opacity": 1}]}
+{"fn": "validate", "args": [{"shadow_opacity": 0.75}]}
+{"fn": "validate", "args": [{"backend": "wrong"}]}
+{"fn": "validate", "args": [{"effect": "bad"}]}
+{"fn": "validate", "args": [[]]}
+{"fn": "validate", "args": [0]}
+{"fn": "validate", "args": [{"effect": "flip"}]}
+{"fn": "validate", "args": [{"duration_ms": 50}]}
+{"fn": "validate", "args": [{"duration_ms": 2000}]}
+{"fn": "validate", "args": [{"duration_ms": 49}]}
+{"fn": "validate", "args": [{"duration_ms": 2001}]}
+{"fn": "validate", "args": [{"duration_ms": true}]}
+{"fn": "validate", "args": [{"duration_ms": 1.5}]}
+{"fn": "validate", "args": [{"fade_ms": 0}]}
+{"fn": "validate", "args": [{"fade_ms": 1000}]}
+{"fn": "validate", "args": [{"fade_ms": -1}]}
+{"fn": "validate", "args": [{"fade_ms": 1001}]}
+{"fn": "validate", "args": [{"fade_ms": true}]}
+{"fn": "validate", "args": [{"fade_ms": 1.5}]}
+{"fn": "validate", "args": [{"shadow_radius": 1}]}
+{"fn": "validate", "args": [{"shadow_radius": 64}]}
+{"fn": "validate", "args": [{"shadow_radius": 0}]}
+{"fn": "validate", "args": [{"shadow_radius": 65}]}
+{"fn": "validate", "args": [{"shadow_radius": true}]}
+{"fn": "validate", "args": [{"shadow_radius": 1.5}]}
+{"fn": "validate", "args": [{"shadow_offset": -32}]}
+{"fn": "validate", "args": [{"shadow_offset": 64}]}
+{"fn": "validate", "args": [{"shadow_offset": -33}]}
+{"fn": "validate", "args": [{"shadow_offset": 65}]}
+{"fn": "validate", "args": [{"shadow_offset": true}]}
+{"fn": "validate", "args": [{"shadow_offset": 1.5}]}
+{"fn": "validate", "args": [{"max_fps": 15}]}
+{"fn": "validate", "args": [{"max_fps": 240}]}
+{"fn": "validate", "args": [{"max_fps": 14}]}
+{"fn": "validate", "args": [{"max_fps": 241}]}
+{"fn": "validate", "args": [{"max_fps": true}]}
+{"fn": "validate", "args": [{"max_fps": 1.5}]}

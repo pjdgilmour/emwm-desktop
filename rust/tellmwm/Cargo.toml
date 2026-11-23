@@ -1,0 +1,11 @@
+[package]
+name = "tellmwm"
+version = "1.2.0"
+edition = "2021"
+rust-version = "1.85"
+license-file = "../../third_party/tellmwm/COPYING"
+publish = false
+
+[dependencies]
+libc = "0.2"
+x11 = { version = "2.21", features = ["xlib"] }

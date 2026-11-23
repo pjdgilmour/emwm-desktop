@@ -1,0 +1,11 @@
+{"fn": "validate", "args": [{}], "ok": {"monitor": "primary", "anchor": "left"}}
+{"fn": "validate", "args": [[]], "error": "TypeError: 'list' object is not a mapping"}
+{"fn": "validate", "args": [null], "error": "TypeError: 'NoneType' object is not a mapping"}
+{"fn": "validate", "args": [{}], "ok": {"monitor": "primary", "anchor": "left"}}
+{"fn": "validate", "args": [{"unrecognized": 1}], "ok": {"monitor": "primary", "anchor": "left"}}
+{"fn": "validate", "args": [{"monitor": "XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX"}], "ok": {"monitor": "XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX", "anchor": "left"}}
+{"fn": "validate", "args": [{"monitor": "ááááááááááááááááááááááááááááááááááááááááááááááááááááááááááááááááááááááááááááááááááááááááááááááááááááááááááááááááááááááááááááááááááááááááááááááááááááááááááááááááááááááááááááááááááááááááááááááááááááááááááááááááááááááááááááááááááááááááááááááááááááááááááááááááá"}], "error": "ValueError: Monitor inválido."}
+{"fn": "validate", "args": [{"monitor": "DP-1\nother=x"}], "error": "ValueError: Monitor inválido."}
+{"fn": "validate", "args": [{"monitor": 1}], "error": "ValueError: Monitor inválido."}
+{"fn": "validate", "args": [{"anchor": "center"}], "error": "ValueError: Escolha o alinhamento à esquerda ou à direita."}
+{"fn": "validate", "args": [{"monitor": "DP-1", "anchor": "right"}], "ok": {"monitor": "DP-1", "anchor": "right"}}

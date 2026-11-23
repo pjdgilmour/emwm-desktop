@@ -1,0 +1,9 @@
+{
+  "schema": "rust-anything/app-cases@1",
+  "name": "emwm-appearance",
+  "run": [
+    "/usr/bin/python3",
+    "../../apps/emwm-appearance/gui.py"
+  ],
+  "timeout_secs": 30
+}

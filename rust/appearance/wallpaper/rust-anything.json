@@ -1,0 +1,67 @@
+{
+  "schema": "rust-anything/bridge@1",
+  "root": "../../../apps/emwm-appearance",
+  "unit": "wallpaper.py",
+  "language": "python",
+  "kind": "pyo3",
+  "crate_name": "appearance-wallpaper-rs",
+  "exports": [
+    {
+      "name": "dimensions",
+      "file": "wallpaper.py",
+      "line": 14,
+      "params": [
+        {
+          "name": "width",
+          "ts_type": "number",
+          "optional": false,
+          "rest": false
+        },
+        {
+          "name": "height",
+          "ts_type": "number",
+          "optional": false,
+          "rest": false
+        }
+      ],
+      "returns": "unknown",
+      "is_async": false,
+      "is_generator": false,
+      "type_params": [],
+      "uses_instanceof": false
+    }
+  ],
+  "classes": [],
+  "js_only": [
+    {
+      "name": "load_image",
+      "file": "wallpaper.py",
+      "line": 21,
+      "reason": "Pillow codec and EXIF"
+    },
+    {
+      "name": "encode",
+      "file": "wallpaper.py",
+      "line": 33,
+      "reason": "Pillow PNG encoder"
+    },
+    {
+      "name": "normalize_png",
+      "file": "wallpaper.py",
+      "line": 43,
+      "reason": "bounded PNG decoder"
+    },
+    {
+      "name": "compose",
+      "file": "wallpaper.py",
+      "line": 50,
+      "reason": "Pillow image bridge to native pixel compositor"
+    },
+    {
+      "name": "prepare",
+      "file": "wallpaper.py",
+      "line": 75,
+      "reason": "filesystem and codec integration"
+    }
+  ]
+}

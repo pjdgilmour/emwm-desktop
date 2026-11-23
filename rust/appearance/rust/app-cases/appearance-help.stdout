@@ -1,0 +1,11 @@
+usage: gui.py [-h] [--session] [--list] [--effects] [--desktop] [--decoration]
+
+Aparência do EMWM e da tela de login
+
+options:
+  -h, --help    show this help message and exit
+  --session     Ativar as preferências salvas, sem janela.
+  --list        Listar temas e detectar o gerenciador de login.
+  --effects     Abrir a aba de efeitos e renderização.
+  --desktop     Abrir a aba da área de trabalho.
+  --decoration  Abrir a aba de decoração e gradientes.

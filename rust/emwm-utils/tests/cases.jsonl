@@ -1,0 +1,18 @@
+{"name": "nested-escapes-mnemonics", "args": ["0.toolboxrc"], "files": {"0.toolboxrc": "&Programas  {\n\t# comentário\n&Editor:   vi '$HOME'\nSEPARATOR\nM\\:enu\n{\nC\\&D &A&B: printf 'A:B'\n}\n}"}}
+{"name": "empty-file", "args": ["0.toolboxrc"], "files": {"0.toolboxrc": ""}}
+{"name": "missing-file", "args": ["0.toolboxrc"], "files": {}}
+{"name": "comments", "args": ["0.toolboxrc"], "files": {"0.toolboxrc": "  # heading\n\t \n"}}
+{"name": "brace-requires-cascade", "args": ["0.toolboxrc"], "files": {"0.toolboxrc": "  # header\n {\n"}}
+{"name": "close-outside", "args": ["0.toolboxrc"], "files": {"0.toolboxrc": "}"}}
+{"name": "cascade-requires-scope", "args": ["0.toolboxrc"], "files": {"0.toolboxrc": "Menu\nOutro: x"}}
+{"name": "empty-command", "args": ["0.toolboxrc"], "files": {"0.toolboxrc": "Menu {\nP: \t"}}
+{"name": "command-at-root", "args": ["0.toolboxrc"], "files": {"0.toolboxrc": "Run: x"}}
+{"name": "separator-before-close", "args": ["0.toolboxrc"], "files": {"0.toolboxrc": "Menu {\nSEPARATOR\n}"}}
+{"name": "verbatim-command", "args": ["0.toolboxrc"], "files": {"0.toolboxrc": "A {\n\\\\\\:&&: sh -c \"echo \\\\&:\\: $USER\" # kept\n}\n"}}
+{"name": "nul-terminates", "args": ["0.toolboxrc"], "files": {"0.toolboxrc": "Olá {\nC: bash\u0000\n{\n"}}
+{"name": "trailing-cr", "args": ["0.toolboxrc"], "files": {"0.toolboxrc": "# header\r\nM {\r\nC: x\r\n"}}
+{"name": "unclosed-menu-at-eof", "args": ["0.toolboxrc"], "files": {"0.toolboxrc": "A {\nB {\nC: x"}}
+{"name": "key-last-wins", "args": ["0.toolboxrc"], "files": {"0.toolboxrc": "&A&B&C {\nA&:B: x\n}"}}
+{"name": "separator-at-root", "args": ["0.toolboxrc"], "files": {"0.toolboxrc": "SEPARATOR\n"}}
+{"name": "separate-braces", "args": ["0.toolboxrc"], "files": {"0.toolboxrc": "A\n{ comments\nC: ok\n} comments\n"}}
+{"name": "reload", "args": ["0.toolboxrc", "1.toolboxrc", "2.toolboxrc", "3.toolboxrc", "4.toolboxrc"], "files": {"0.toolboxrc": "A {\nB: OLD\n}", "1.toolboxrc": "Bad: x", "3.toolboxrc": "C {\nD: NEW\n}", "4.toolboxrc": "# no entries\n"}}

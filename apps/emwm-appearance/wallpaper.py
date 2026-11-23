@@ -3,6 +3,7 @@
 import io
 import re
 from PIL import Image, ImageOps
+from core import native_unit
 
 MODES = {'zoom': 'Preencher (recortar)', 'stretch': 'Esticar (expandir)',
          'fit': 'Ajustar (sem recortar)', 'center': 'Centralizar', 'tile': 'Mosaico (tile)'}
@@ -51,10 +52,15 @@ def compose(image, mode, width, height, color='#000000'):
     if mode not in MODES: raise ValueError('Modo de fundo inválido.')
     width, height = dimensions(width, height)
     if not re.fullmatch(r'#[0-9a-fA-F]{6}', color): raise ValueError('Cor de fundo inválida.')
-    canvas = Image.new('RGB', (width, height), color)
     if mode == 'zoom': image = ImageOps.fit(image, (width, height), Image.Resampling.LANCZOS)
     elif mode == 'stretch': image = image.resize((width, height), Image.Resampling.LANCZOS)
     elif mode == 'fit': image = ImageOps.contain(image, (width, height), Image.Resampling.LANCZOS)
+    if _native is not None and image.mode == 'RGBA':
+        background = tuple(bytes.fromhex(color[1:]))
+        pixels = _native.paste_rgba(image.tobytes(), image.size, (width, height),
+                                    background, mode == 'tile')
+        return Image.frombytes('RGB', (width, height), pixels)
+    canvas = Image.new('RGB', (width, height), color)
     if mode == 'tile':
         # Doubling avoids millions of paste calls for tiny patterns.
         canvas.paste(image, (0, 0), image)
@@ -84,3 +90,8 @@ def prepare(path, mode, width, height, color='#000000'):
     else:
         image = compose(image, mode, width, height, color)
     return encode(image)
+
+
+_native = native_unit('wallpaper')
+if _native is not None:
+    dimensions = _native.dimensions

@@ -40,8 +40,9 @@ sudo ./apps/emwm-appearance/install-system.sh
 emwm-appearance
 ```
 
-O script instala `python3-gi`, `python3-gi-cairo`, `python3-pil`, `gir1.2-gtk-3.0`, `xsettingsd`, `pkexec` e
-`x11-xserver-utils`, os arquivos da ferramenta e seu auxiliar administrativo.
+O script compila a interface GTK 3 e o auxiliar de login em Rust usando Cargo.
+Ele instala as dependências de compilação, `xsettingsd`, `pkexec` e `x11-xserver-utils`,
+e coloca os dois executáveis em `/usr/lib/emwm-desktop/appearance/`.
 A ferramenta também integra o pacote construído pelo instalador do desktop.
 
 Escolha tema, ícones e cursor, opcionalmente uma paleta Motif, e clique em

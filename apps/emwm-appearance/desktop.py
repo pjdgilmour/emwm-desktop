@@ -2,7 +2,7 @@
 """Desktop placement preferences, consumed live by the private PCManFM."""
 import configparser
 import subprocess
-from core import edit_ini, read
+from core import edit_ini, native_unit, read
 
 DEFAULTS = {'monitor': 'primary', 'anchor': 'left'}
 
@@ -38,6 +38,11 @@ def current(config):
 def configuration(config, values):
     path = config / 'emwm-desktop/desktop.conf'
     return path, edit_ini(read(path), 'desktop', validate(values))
+
+
+_native = native_unit('desktop')
+if _native is not None:
+    validate = _native.validate
 
 
 class Controls:

@@ -1,0 +1,4 @@
+bin.name = "tellmwm"
+args = ["namews", "ws0", "Novo nome"]
+status.code = 1
+fs.sandbox = true

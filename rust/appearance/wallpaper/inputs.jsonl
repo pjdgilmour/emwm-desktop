@@ -1,0 +1,11 @@
+{"fn": "dimensions", "args": [1, 1]}
+{"fn": "dimensions", "args": ["3", "45"]}
+{"fn": "dimensions", "args": [3.9, 4]}
+{"fn": "dimensions", "args": [true, false]}
+{"fn": "dimensions", "args": [-1, 1]}
+{"fn": "dimensions", "args": [16384, 1]}
+{"fn": "dimensions", "args": [16385, 1]}
+{"fn": "dimensions", "args": [8000, 5000]}
+{"fn": "dimensions", "args": [8001, 5000]}
+{"fn": "dimensions", "args": ["x", 2]}
+{"fn": "dimensions", "args": [null, 5]}

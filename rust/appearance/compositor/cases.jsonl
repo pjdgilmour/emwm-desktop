@@ -1,0 +1,44 @@
+{"fn": "validate", "args": [{}], "ok": {"backend": "auto", "effect": "zoom", "duration_ms": 220, "fade_ms": 120, "shadows": true, "shadow_radius": 16, "shadow_offset": 6, "shadow_opacity": 0.45, "vsync": true, "max_fps": 60}}
+{"fn": "validate", "args": [{"backend": "glx", "effect": "twist"}], "ok": {"backend": "glx", "effect": "twist", "duration_ms": 220, "fade_ms": 120, "shadows": true, "shadow_radius": 16, "shadow_offset": 6, "shadow_opacity": 0.45, "vsync": true, "max_fps": 60}}
+{"fn": "validate", "args": [{"backend": "xrender", "effect": "none"}], "ok": {"backend": "xrender", "effect": "none", "duration_ms": 220, "fade_ms": 120, "shadows": true, "shadow_radius": 16, "shadow_offset": 6, "shadow_opacity": 0.45, "vsync": true, "max_fps": 60}}
+{"fn": "validate", "args": [{"future": "ignored"}], "ok": {"backend": "auto", "effect": "zoom", "duration_ms": 220, "fade_ms": 120, "shadows": true, "shadow_radius": 16, "shadow_offset": 6, "shadow_opacity": 0.45, "vsync": true, "max_fps": 60}}
+{"fn": "validate", "args": [{"shadows": 1}], "error": "ValueError: shadows: valor inválido."}
+{"fn": "validate", "args": [{"vsync": "false"}], "error": "ValueError: vsync: valor inválido."}
+{"fn": "validate", "args": [{"shadow_opacity": null}], "error": "ValueError: A intensidade da sombra deve estar entre 0 e 100%."}
+{"fn": "validate", "args": [{"shadow_opacity": 1}], "ok": {"backend": "auto", "effect": "zoom", "duration_ms": 220, "fade_ms": 120, "shadows": true, "shadow_radius": 16, "shadow_offset": 6, "shadow_opacity": 1, "vsync": true, "max_fps": 60}}
+{"fn": "validate", "args": [{"shadow_opacity": 0.75}], "ok": {"backend": "auto", "effect": "zoom", "duration_ms": 220, "fade_ms": 120, "shadows": true, "shadow_radius": 16, "shadow_offset": 6, "shadow_opacity": 0.75, "vsync": true, "max_fps": 60}}
+{"fn": "validate", "args": [{"backend": "wrong"}], "error": "ValueError: Backend de composição inválido."}
+{"fn": "validate", "args": [{"effect": "bad"}], "error": "ValueError: Efeito de animação inválido."}
+{"fn": "validate", "args": [[]], "ok": {"backend": "auto", "effect": "zoom", "duration_ms": 220, "fade_ms": 120, "shadows": true, "shadow_radius": 16, "shadow_offset": 6, "shadow_opacity": 0.45, "vsync": true, "max_fps": 60}}
+{"fn": "validate", "args": [0], "error": "TypeError: 'int' object is not iterable"}
+{"fn": "validate", "args": [{"effect": "flip"}], "ok": {"backend": "auto", "effect": "flip", "duration_ms": 220, "fade_ms": 120, "shadows": true, "shadow_radius": 16, "shadow_offset": 6, "shadow_opacity": 0.45, "vsync": true, "max_fps": 60}}
+{"fn": "validate", "args": [{"duration_ms": 50}], "ok": {"backend": "auto", "effect": "zoom", "duration_ms": 50, "fade_ms": 120, "shadows": true, "shadow_radius": 16, "shadow_offset": 6, "shadow_opacity": 0.45, "vsync": true, "max_fps": 60}}
+{"fn": "validate", "args": [{"duration_ms": 2000}], "ok": {"backend": "auto", "effect": "zoom", "duration_ms": 2000, "fade_ms": 120, "shadows": true, "shadow_radius": 16, "shadow_offset": 6, "shadow_opacity": 0.45, "vsync": true, "max_fps": 60}}
+{"fn": "validate", "args": [{"duration_ms": 49}], "error": "ValueError: duration_ms: use um valor entre 50 e 2000."}
+{"fn": "validate", "args": [{"duration_ms": 2001}], "error": "ValueError: duration_ms: use um valor entre 50 e 2000."}
+{"fn": "validate", "args": [{"duration_ms": true}], "error": "ValueError: duration_ms: use um valor entre 50 e 2000."}
+{"fn": "validate", "args": [{"duration_ms": 1.5}], "error": "ValueError: duration_ms: use um valor entre 50 e 2000."}
+{"fn": "validate", "args": [{"fade_ms": 0}], "ok": {"backend": "auto", "effect": "zoom", "duration_ms": 220, "fade_ms": 0, "shadows": true, "shadow_radius": 16, "shadow_offset": 6, "shadow_opacity": 0.45, "vsync": true, "max_fps": 60}}
+{"fn": "validate", "args": [{"fade_ms": 1000}], "ok": {"backend": "auto", "effect": "zoom", "duration_ms": 220, "fade_ms": 1000, "shadows": true, "shadow_radius": 16, "shadow_offset": 6, "shadow_opacity": 0.45, "vsync": true, "max_fps": 60}}
+{"fn": "validate", "args": [{"fade_ms": -1}], "error": "ValueError: fade_ms: use um valor entre 0 e 1000."}
+{"fn": "validate", "args": [{"fade_ms": 1001}], "error": "ValueError: fade_ms: use um valor entre 0 e 1000."}
+{"fn": "validate", "args": [{"fade_ms": true}], "error": "ValueError: fade_ms: use um valor entre 0 e 1000."}
+{"fn": "validate", "args": [{"fade_ms": 1.5}], "error": "ValueError: fade_ms: use um valor entre 0 e 1000."}
+{"fn": "validate", "args": [{"shadow_radius": 1}], "ok": {"backend": "auto", "effect": "zoom", "duration_ms": 220, "fade_ms": 120, "shadows": true, "shadow_radius": 1, "shadow_offset": 6, "shadow_opacity": 0.45, "vsync": true, "max_fps": 60}}
+{"fn": "validate", "args": [{"shadow_radius": 64}], "ok": {"backend": "auto", "effect": "zoom", "duration_ms": 220, "fade_ms": 120, "shadows": true, "shadow_radius": 64, "shadow_offset": 6, "shadow_opacity": 0.45, "vsync": true, "max_fps": 60}}
+{"fn": "validate", "args": [{"shadow_radius": 0}], "error": "ValueError: shadow_radius: use um valor entre 1 e 64."}
+{"fn": "validate", "args": [{"shadow_radius": 65}], "error": "ValueError: shadow_radius: use um valor entre 1 e 64."}
+{"fn": "validate", "args": [{"shadow_radius": true}], "error": "ValueError: shadow_radius: use um valor entre 1 e 64."}
+{"fn": "validate", "args": [{"shadow_radius": 1.5}], "error": "ValueError: shadow_radius: use um valor entre 1 e 64."}
+{"fn": "validate", "args": [{"shadow_offset": -32}], "ok": {"backend": "auto", "effect": "zoom", "duration_ms": 220, "fade_ms": 120, "shadows": true, "shadow_radius": 16, "shadow_offset": -32, "shadow_opacity": 0.45, "vsync": true, "max_fps": 60}}
+{"fn": "validate", "args": [{"shadow_offset": 64}], "ok": {"backend": "auto", "effect": "zoom", "duration_ms": 220, "fade_ms": 120, "shadows": true, "shadow_radius": 16, "shadow_offset": 64, "shadow_opacity": 0.45, "vsync": true, "max_fps": 60}}
+{"fn": "validate", "args": [{"shadow_offset": -33}], "error": "ValueError: shadow_offset: use um valor entre -32 e 64."}
+{"fn": "validate", "args": [{"shadow_offset": 65}], "error": "ValueError: shadow_offset: use um valor entre -32 e 64."}
+{"fn": "validate", "args": [{"shadow_offset": true}], "error": "ValueError: shadow_offset: use um valor entre -32 e 64."}
+{"fn": "validate", "args": [{"shadow_offset": 1.5}], "error": "ValueError: shadow_offset: use um valor entre -32 e 64."}
+{"fn": "validate", "args": [{"max_fps": 15}], "ok": {"backend": "auto", "effect": "zoom", "duration_ms": 220, "fade_ms": 120, "shadows": true, "shadow_radius": 16, "shadow_offset": 6, "shadow_opacity": 0.45, "vsync": true, "max_fps": 15}}
+{"fn": "validate", "args": [{"max_fps": 240}], "ok": {"backend": "auto", "effect": "zoom", "duration_ms": 220, "fade_ms": 120, "shadows": true, "shadow_radius": 16, "shadow_offset": 6, "shadow_opacity": 0.45, "vsync": true, "max_fps": 240}}
+{"fn": "validate", "args": [{"max_fps": 14}], "error": "ValueError: max_fps: use um valor entre 15 e 240."}
+{"fn": "validate", "args": [{"max_fps": 241}], "error": "ValueError: max_fps: use um valor entre 15 e 240."}
+{"fn": "validate", "args": [{"max_fps": true}], "error": "ValueError: max_fps: use um valor entre 15 e 240."}
+{"fn": "validate", "args": [{"max_fps": 1.5}], "error": "ValueError: max_fps: use um valor entre 15 e 240."}

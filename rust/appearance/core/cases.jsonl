@@ -1,0 +1,32 @@
+{"fn": "palette_colors", "args": ["irix"], "ok": {"*background": "#d2d2d2", "*foreground": "#000000", "Emwm*client*background": "#8c8c8c", "Emwm*client*activeBackground": "#aba68c", "Emwm*icon*activeBackground": "#aba68c"}}
+{"fn": "palette_colors", "args": ["classic"], "ok": {"*background": "#bdbdbd", "*foreground": "#000000", "Emwm*client*background": "#a0a0a0", "Emwm*client*activeBackground": "#7399ba", "Emwm*icon*activeBackground": "#7399ba"}}
+{"fn": "palette_colors", "args": ["custom"], "ok": {"*background": "#d2d2d2", "*foreground": "#000000", "Emwm*client*background": "#8c8c8c", "Emwm*client*activeBackground": "#7399ba", "Emwm*icon*activeBackground": "#7399ba"}}
+{"fn": "palette_colors", "args": ["keep"], "ok": {"*background": "#d2d2d2", "*foreground": "#000000", "Emwm*client*background": "#8c8c8c", "Emwm*client*activeBackground": "#7399ba", "Emwm*icon*activeBackground": "#7399ba"}}
+{"fn": "palette_colors", "args": ["bad"], "error": "KeyError: 'bad'"}
+{"fn": "palette_colors", "args": [{}], "error": "TypeError: unhashable type: 'dict'"}
+{"fn": "palette_colors", "args": [[]], "error": "TypeError: unhashable type: 'list'"}
+{"fn": "valid_name", "args": [null], "error": "ValueError: Nome de tema inválido."}
+{"fn": "valid_name", "args": [0], "error": "ValueError: Nome de tema inválido."}
+{"fn": "valid_name", "args": [""], "error": "ValueError: Nome de tema inválido."}
+{"fn": "valid_name", "args": ["A"], "ok": "A"}
+{"fn": "valid_name", "args": [".."], "error": "ValueError: Nome de tema inválido."}
+{"fn": "valid_name", "args": ["."], "error": "ValueError: Nome de tema inválido."}
+{"fn": "valid_name", "args": ["Ícones GTK 3"], "ok": "Ícones GTK 3"}
+{"fn": "valid_name", "args": ["a/b"], "error": "ValueError: Nome de tema inválido."}
+{"fn": "valid_name", "args": ["a\\b"], "error": "ValueError: Nome de tema inválido."}
+{"fn": "valid_name", "args": ["x\t"], "error": "ValueError: Nome de tema inválido."}
+{"fn": "valid_name", "args": ["aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"], "error": "ValueError: Nome de tema inválido."}
+{"fn": "valid_name", "args": ["🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵"], "ok": "🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵🏵"}
+{"fn": "edit_ini", "args": ["", "greeter", {"theme-name": "New", "cursor": "Ícones"}], "ok": "\n[greeter]\ntheme-name=New\ncursor=Ícones\n"}
+{"fn": "edit_ini", "args": ["# No section", "greeter", {"theme-name": "New", "cursor": "Ícones"}], "ok": "# No section\n\n[greeter]\ntheme-name=New\ncursor=Ícones\n"}
+{"fn": "edit_ini", "args": ["[greeter]\ntheme-name=old\nTheme-Name=other\n", "greeter", {"theme-name": "New", "cursor": "Ícones"}], "ok": "[greeter]\ntheme-name=New\ncursor=Ícones\n"}
+{"fn": "edit_ini", "args": ["[greeter]\r\nOther=1\r\n[Seat:*]\n", "greeter", {"theme-name": "New", "cursor": "Ícones"}], "ok": "[greeter]\r\nOther=1\r\ntheme-name=New\ncursor=Ícones\n[Seat:*]\n"}
+{"fn": "edit_ini", "args": ["[greeter]\n[greeter]\n[other]", "greeter", {"theme-name": "New", "cursor": "Ícones"}], "ok": "[greeter]\ntheme-name=New\ncursor=Ícones\n[greeter]\n[other]\n"}
+{"fn": "edit_ini", "args": ["[other]\n;Hi\n[greeter]\ntheme-name = X\n;keep\n", "greeter", {"theme-name": "New", "cursor": "Ícones"}], "ok": "[other]\n;Hi\n[greeter]\ntheme-name=New\n;keep\ncursor=Ícones\n"}
+{"fn": "edit_ini", "args": ["[greeter]\na=b other=x", "greeter", {"theme-name": "New", "cursor": "Ícones"}], "ok": "[greeter]\na=b \nother=x\ntheme-name=New\ncursor=Ícones\n"}
+{"fn": "managed_block", "args": ["", "T", "X\n", "!"], "ok": "\n\n! BEGIN T\nX\n! END T\n"}
+{"fn": "managed_block", "args": ["X\n", "T", "X\n", "!"], "ok": "X\n\n! BEGIN T\nX\n! END T\n"}
+{"fn": "managed_block", "args": ["A\n! BEGIN T\nold\n! END T\nX", "T", "X\n", "!"], "ok": "A\nX\n\n! BEGIN T\nX\n! END T\n"}
+{"fn": "managed_block", "args": ["! BEGIN T\nno end\n", "T", "X\n", "!"], "ok": "! BEGIN T\nno end\n\n! BEGIN T\nX\n! END T\n"}
+{"fn": "managed_block", "args": ["! BEGIN T\n! END T\n! BEGIN T\n! END T\n", "T", "X\n", "!"], "ok": "\n\n! BEGIN T\nX\n! END T\n"}
+{"fn": "managed_block", "args": ["! BEGIN T\n! END Ttail", "T", "X\n", "!"], "ok": "tail\n\n! BEGIN T\nX\n! END T\n"}

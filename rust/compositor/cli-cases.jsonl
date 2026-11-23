@@ -1,0 +1,8 @@
+{"name":"help","args":["--help"]}
+{"name":"unknown-argument","args":["--not-an-option"]}
+{"name":"missing-config","args":["--config"]}
+{"name":"missing-backend","args":["--backend"]}
+{"name":"invalid-backend","args":["--backend","vulkan"]}
+{"name":"no-display","args":[],"env":{"DISPLAY":""}}
+{"name":"valid-backend-no-display","args":["--backend","glx"],"env":{"DISPLAY":""}}
+{"name":"config-and-help","args":["--config","custom.conf","--help"]}

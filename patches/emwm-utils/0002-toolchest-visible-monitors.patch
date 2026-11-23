@@ -122,3 +122,10 @@
  xmsm_libs = -lXm -lXt -lXss -lXrandr -lXinerama -lX11 $(SYSLIBS)
  
  toolbox_objs = tbtray.o tbmain.o tbparse.o wswitch.o tbxdg.o tbxdgmenu.o
+--- a/tests/run.sh
++++ b/tests/run.sh
+@@ -39,3 +39,3 @@
+         -DTRAY_EMBEDDED src/tray.c tests/motif.c src/tbxdg.c src/tbxdgmenu.c src/tbparse.c src/common.c src/wswitch.c \
+-        -o "$work/test-motif" ${LDFLAGS:-} -lXm -lXt -lXrender -lX11 -lXtst \
++        -o "$work/test-motif" ${LDFLAGS:-} -lXm -lXt -lXrandr -lXrender -lX11 -lXtst \
+         $(${PKG_CONFIG:-pkg-config} --libs garcon-1 gio-unix-2.0)

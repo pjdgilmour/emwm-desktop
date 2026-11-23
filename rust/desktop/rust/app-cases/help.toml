@@ -1,0 +1,4 @@
+bin.name = "emwm-install"
+args = ["--help"]
+status.code = 0
+fs.sandbox = true

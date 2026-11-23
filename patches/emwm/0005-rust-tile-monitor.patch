@@ -1,0 +1,53 @@
+--- a/src/WmTile.c
++++ b/src/WmTile.c
+@@ -85,29 +85,9 @@
+     return True; /* Traditional ICCCM clients need no EWMH properties. */
+ }
+ 
+-static long long Intersection(TileRect a, TileRect b)
+-{
+-    int w = MIN(a.x + a.width, b.x + b.width) - MAX(a.x, b.x);
+-    int h = MIN(a.y + a.height, b.y + b.height) - MAX(a.y, b.y);
+-    return w > 0 && h > 0 ? (long long)w * h : 0;
+-}
+-
+-static void ChooseMonitor(TileRect client, TileRect candidate, TileRect *best,
+-                          long long *area, long long *distance)
+-{
+-    long long overlap = Intersection(client, candidate);
+-    long long dx = (long long)client.x * 2 + client.width -
+-                  ((long long)candidate.x * 2 + candidate.width);
+-    long long dy = (long long)client.y * 2 + client.height -
+-                  ((long long)candidate.y * 2 + candidate.height);
+-    long long dist = dx * dx + dy * dy;
+-    if (candidate.width <= 0 || candidate.height <= 0) return;
+-    if (overlap > *area || (overlap == *area && dist < *distance)) {
+-        *area = overlap;
+-        *distance = dist;
+-        *best = candidate;
+-    }
+-}
++extern void EmwmChooseTileMonitor(TileRect client, TileRect candidate,
++                                  TileRect *best, long long *area,
++                                  long long *distance);
+ 
+ static TileRect ClientMonitor(ClientData *cd)
+ {
+@@ -129,7 +109,7 @@
+         for (i = 0; monitors && i < n; i++) {
+             TileRect r = {monitors[i].x, monitors[i].y,
+                           monitors[i].width, monitors[i].height};
+-            ChooseMonitor(client, r, &best, &area, &distance);
++            EmwmChooseTileMonitor(client, r, &best, &area, &distance);
+         }
+         if (monitors) XRRFreeMonitors(monitors);
+         if (area >= 0) return best;
+@@ -139,7 +119,7 @@
+     for (i = 0; i < n; i++) {
+         if (GetXineramaScreenInfo(i, &si)) {
+             TileRect r = {si.x_org, si.y_org, si.width, si.height};
+-            ChooseMonitor(client, r, &best, &area, &distance);
++            EmwmChooseTileMonitor(client, r, &best, &area, &distance);
+         }
+     }
+     return best;

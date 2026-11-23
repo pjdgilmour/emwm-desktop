@@ -1,0 +1,5 @@
+{"name":"empty-home","args":["--migrate"],"env":{"HOME":".","DISPLAY":""}}
+{"name":"missing-home","args":["--migrate"],"env":{"HOME":"","DISPLAY":""}}
+{"name":"missing-display","args":["--refresh-layout"],"env":{"HOME":".","DISPLAY":""}}
+{"name":"invalid-monitor-count","args":["--migrate"],"env":{"HOME":".","DISPLAY":""},"files":{".config/emwm/backdrops.resources":"Emwm*ws0*backdrop*image: \"/tmp/background.png\"\nEmwmWallpaperTool.ws0.monitorCount: 65\n"}}
+{"name":"invalid-monitor-name","args":["--refresh-layout"],"env":{"HOME":".","DISPLAY":""},"files":{".config/emwm/backdrops.resources":"Emwm*ws0*backdrop*image: \"/tmp/background.png\"\nEmwmWallpaperTool.ws0.monitorCount: 1\n"}}

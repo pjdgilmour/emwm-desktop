@@ -1,0 +1,262 @@
+--- a/src/desktop.c
++++ b/src/desktop.c
+@@ -230,19 +230,9 @@
+             char *name = gdk_screen_get_monitor_plug_name(screen, desktop->monitor);
+             if (name && *name)
+             {
+-                char *escaped = g_uri_escape_string(name, NULL, FALSE);
+-                char *named = g_strdup_printf("%s/desktop-output-%s.conf", dir, escaped);
+-                if (!g_file_test(named, G_FILE_TEST_EXISTS))
+-                {
+-                    char *contents = NULL; gsize size;
+-                    /* Keep the legacy file intact as the migration backup. */
+-                    if (g_file_get_contents(path, &contents, &size, NULL))
+-                        g_file_set_contents(named, contents, size, NULL);
+-                    g_free(contents);
+-                }
++                char *named = emwm_named_profile(dir, name, path);
+                 g_object_set_data_full(G_OBJECT(desktop), "emwm-profile", named, g_free);
+                 cached = named;
+-                g_free(escaped);
+             }
+             g_free(name);
+         }
+@@ -349,7 +339,7 @@
+     GtkTreeIter it;
+     char* path;
+     GtkTreeModel* model;
+-    GKeyFile* kf;
++    EmwmProfile *profile;
+ 
+     if (desktop->model == NULL)
+         return;
+@@ -359,8 +349,8 @@
+     path = get_config_file(desktop, FALSE);
+     if(!path)
+         return;
+-    kf = g_key_file_new();
+-    if(g_key_file_load_from_file(kf, path, 0, NULL))
++    profile = emwm_profile_load(path);
++    if (profile)
+     {
+         do
+         {
+@@ -371,22 +361,14 @@
+ 
+             item = fm_folder_model_get_item_userdata(desktop->model, &it);
+             name = fm_file_info_get_name(item->fi);
+-            if(g_key_file_has_group(kf, name))
++            EmwmSavedPoint point = emwm_profile_position(profile, name, emwm_layout, desktop_grid(desktop));
++            if (point.found)
+             {
+                 gtk_tree_model_get(model, &it, FM_FOLDER_MODEL_COL_ICON, &icon, -1);
+                 desktop->fixed_items = g_list_prepend(desktop->fixed_items, item);
+                 item->fixed_pos = TRUE;
+-                item->area.x = g_key_file_get_integer(kf, name, "x", NULL);
+-                item->area.y = g_key_file_get_integer(kf, name, "y", NULL);
+-                /* Mirror manually positioned icons when changing the anchor,
+-                 * preserving their relative arrangement and vertical position. */
+-                if (emwm_layout)
+-                {
+-                    gboolean was_right = g_key_file_get_boolean(kf, "*", "emwm_anchor_right", NULL);
+-                    gint old_width = g_key_file_get_integer(kf, "*", "emwm_workarea_width", NULL);
+-                    item->area.x = emwm_anchor_x(item->area.x, old_width, was_right,
+-                        desktop->working_area, desktop->cell_w, emwm_right);
+-                }
++                item->area.x = point.x;
++                item->area.y = point.y;
+                 /* pull item into screen bounds */
+                 if (item->area.x < desktop->xmargin + desktop->working_area.x)
+                     item->area.x = desktop->xmargin + desktop->working_area.x;
+@@ -419,7 +401,7 @@
+         while(gtk_tree_model_iter_next(model, &it));
+     }
+     g_free(path);
+-    g_key_file_free(kf);
++    emwm_profile_free(profile);
+     queue_layout_items(desktop);
+ }
+ 
+@@ -462,123 +444,45 @@
+ /* save position of desktop icons */
+ static void save_item_pos(FmDesktop* desktop)
+ {
+-    GList* l;
+-    GString* buf;
+-    char* path = get_config_file(desktop, TRUE);
+-
+-    if(!path)
+-        return;
+-    buf = g_string_sized_new(1024);
+-
+-    /* save desktop config */
++    char *path = get_config_file(desktop, TRUE);
++    if (!path) return;
++    GString *config = g_string_sized_new(1024);
+     if (desktop->conf.configured)
+-    {
+-        fm_app_config_save_desktop_config(buf, "*", &desktop->conf);
+-        if (emwm_layout && desktop->model)
+-            g_string_append_printf(buf, "emwm_anchor_right=%s\nemwm_workarea_width=%d\n",
+-                                   emwm_right ? "true" : "false", desktop->working_area.width);
+-        g_string_append_c(buf, '\n');
+-    }
+-
+-    /* A background-only monitor must not erase its saved manual positions.
+-     * Wallpaper updates also save this file while its icon model is disabled. */
+-    if (emwm_layout && !desktop->model)
+-    {
+-        GKeyFile *saved = g_key_file_new();
+-        if (g_key_file_load_from_file(saved, path, 0, NULL))
+-        {
+-            gboolean right = g_key_file_get_boolean(saved, "*", "emwm_anchor_right", NULL);
+-            char *positions;
+-            g_string_append_printf(buf, "emwm_anchor_right=%s\nemwm_workarea_width=%d\n\n",
+-                                   right ? "true" : "false",
+-                                   g_key_file_get_integer(saved, "*", "emwm_workarea_width", NULL));
+-            g_key_file_remove_group(saved, "*", NULL);
+-            positions = g_key_file_to_data(saved, NULL, NULL);
+-            g_string_append(buf, positions);
+-            g_free(positions);
+-        }
+-        g_key_file_free(saved);
+-    }
+-
+-    /* save all items positions */
+-    for(l = desktop->fixed_items; l; l=l->next)
+-    {
+-        FmDesktopItem* item = (FmDesktopItem*)l->data;
+-        FmPath* fi_path = fm_file_info_get_path(item->fi);
+-        const char* p;
+-        /* write the file basename as group name */
+-        g_string_append_c(buf, '[');
+-        for(p = fm_path_get_basename(fi_path); *p; ++p)
+-        {
+-            switch(*p)
+-            {
+-            case '\r':
+-                g_string_append(buf, "\\r");
+-                break;
+-            case '\n':
+-                g_string_append(buf, "\\n");
+-                break;
+-            case '\\':
+-                g_string_append(buf, "\\\\");
+-                break;
+-            case '[':
+-                g_string_append(buf, "\\[");
+-                break;
+-            case ']':
+-                g_string_append(buf, "\\]");
+-                break;
+-            default:
+-                g_string_append_c(buf, *p);
+-            }
+-        }
+-        g_string_append(buf, "]\n");
+-        g_string_append_printf(buf, "x=%d\n"
+-                                    "y=%d\n\n",
+-                                    item->area.x, item->area.y);
+-    }
+-    /* Extra items (trash and volumes) arrive asynchronously after a surface
+-     * rebuild. Saving a wallpaper before they arrive must not erase positions.
+-     * A present, non-fixed item is deliberately automatic and is not restored. */
++        fm_app_config_save_desktop_config(config, "*", &desktop->conf);
++
++    GArray *fixed = g_array_new(FALSE, FALSE, sizeof(EmwmFixedItem));
++    for (GList *l = desktop->fixed_items; l; l = l->next)
++    {
++        FmDesktopItem *item = l->data;
++        FmPath *file = fm_file_info_get_path(item->fi);
++        EmwmFixedItem entry = {fm_path_get_basename(file), item->area.x, item->area.y};
++        g_array_append_val(fixed, entry);
++    }
++
++    GPtrArray *present = g_ptr_array_new();
++    gboolean loaded = FALSE;
+     if (emwm_layout && desktop->model)
+     {
+-        GKeyFile *saved = g_key_file_new(), *current = g_key_file_new();
+-        if (g_key_file_load_from_file(saved, path, 0, NULL) &&
+-            g_key_file_load_from_data(current, buf->str, buf->len, 0, NULL))
+-        {
+-            char **groups = g_key_file_get_groups(saved, NULL), **group;
+-            FmFolder *folder = fm_folder_model_get_folder(desktop->model);
+-            for (group = groups; *group; ++group)
+-            {
+-                GtkTreeIter iter;
+-                gboolean present = FALSE;
+-                if (!strcmp(*group, "*") || g_key_file_has_group(current, *group)) continue;
+-                if (!strstr(*group, "://") && fm_folder_is_loaded(folder)) continue;
+-                if (gtk_tree_model_get_iter_first(GTK_TREE_MODEL(desktop->model), &iter)) do
+-                {
+-                    FmDesktopItem *item = fm_folder_model_get_item_userdata(desktop->model, &iter);
+-                    if (item && !g_strcmp0(fm_file_info_get_name(item->fi), *group))
+-                    { present = TRUE; break; }
+-                } while (gtk_tree_model_iter_next(GTK_TREE_MODEL(desktop->model), &iter));
+-                if (!present)
+-                {
+-                    gint x = g_key_file_get_integer(saved, *group, "x", NULL);
+-                    gint width = g_key_file_get_integer(saved, "*", "emwm_workarea_width", NULL);
+-                    gboolean right = g_key_file_get_boolean(saved, "*", "emwm_anchor_right", NULL);
+-                    x = emwm_anchor_x(x, width, right, desktop->working_area,
+-                                      desktop->cell_w, emwm_right);
+-                    g_key_file_set_integer(current, *group, "x", x);
+-                    g_key_file_set_integer(current, *group, "y", g_key_file_get_integer(saved, *group, "y", NULL));
+-                }
+-            }
+-            g_strfreev(groups);
+-            char *merged = g_key_file_to_data(current, NULL, NULL);
+-            g_string_assign(buf, merged); g_free(merged);
+-        }
+-        g_key_file_free(saved); g_key_file_free(current);
+-    }
+-    g_file_set_contents(path, buf->str, buf->len, NULL);
++        GtkTreeIter iter;
++        GtkTreeModel *model = GTK_TREE_MODEL(desktop->model);
++        loaded = fm_folder_is_loaded(fm_folder_model_get_folder(desktop->model));
++        if (gtk_tree_model_get_iter_first(model, &iter)) do
++        {
++            FmDesktopItem *item = fm_folder_model_get_item_userdata(desktop->model, &iter);
++            const char *name = item ? fm_file_info_get_name(item->fi) : NULL;
++            if (name) g_ptr_array_add(present, (gpointer)name);
++        } while (gtk_tree_model_iter_next(model, &iter));
++    }
++    EmwmDesktopState state = {
++        config->str, desktop->conf.configured, emwm_layout, desktop->model != NULL, loaded,
++        desktop_grid(desktop), (EmwmFixedItem *)fixed->data, fixed->len,
++        (const char *const *)present->pdata, present->len
++    };
++    emwm_save_positions(path, &state);
++    g_ptr_array_free(present, TRUE);
++    g_array_free(fixed, TRUE);
++    g_string_free(config, TRUE);
+     g_free(path);
+-    g_string_free(buf, TRUE);
+     desktop->conf.changed = FALSE; /* reset it since we saved it */
+ }
+ 
+--- a/src/emwm-layout.h
++++ b/src/emwm-layout.h
+@@ -27,4 +27,21 @@
+                 FM_WP_CROP == 5 && FM_WP_SCREEN == 6);
+ GdkRectangle emwm_wallpaper_rect(gint mode, gint src_w, gint src_h, gint dest_w, gint dest_h, gint x, gint y);
+ 
++typedef struct EmwmProfile EmwmProfile;
++typedef struct { gint found, x, y; } EmwmSavedPoint;
++typedef struct { const char *basename; gint x, y; } EmwmFixedItem;
++typedef struct {
++    const char *config;
++    gint configured, layout, active, loaded;
++    EmwmGrid grid;
++    const EmwmFixedItem *fixed; gsize fixed_count;
++    const char *const *present; gsize present_count;
++} EmwmDesktopState;
++
++char *emwm_named_profile(const char *directory, const char *output, const char *legacy);
++EmwmProfile *emwm_profile_load(const char *path);
++void emwm_profile_free(EmwmProfile *profile);
++EmwmSavedPoint emwm_profile_position(const EmwmProfile *profile, const char *name, gint layout, EmwmGrid grid);
++void emwm_save_positions(const char *path, const EmwmDesktopState *state);
++
+ #endif

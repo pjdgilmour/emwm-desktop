@@ -1,0 +1,191 @@
+--- a/src/WmXinerama.c
++++ b/src/WmXinerama.c
+@@ -20,147 +20,29 @@
+  * DEALINGS IN THE SOFTWARE.
+  */
+ 
++/* Rust handles the Xinerama lifecycle and queries. These accessors keep
++ * private Motif structs and preprocessor macros on the C side of the ABI. */
+ #include "WmGlobal.h"
+-#include "WmError.h"
+-#include "WmXinerama.h"
+ 
+-static Bool is_active = False;
+-static Bool is_present = False;
+-static XineramaScreenInfo *g_xsi = NULL;
+-static int g_nxsi = 0;
+-
+-/*
+- * Checks for xinerama availability and fetches screen info.
+- */
+-void SetupXinerama(void)
++Display *EmwmDisplay(void)
+ {
+-	int major_opcode, first_event, first_error;
+-	if((is_present = XQueryExtension(DISPLAY,"XINERAMA",
+-		&major_opcode,&first_event,&first_error))) {
+-
+-		if(!XineramaIsActive(DISPLAY) ||
+-			(g_xsi = XineramaQueryScreens(DISPLAY,&g_nxsi)) == NULL){
+-			is_active = False;
+-			return; 
+-		}
+-		is_active = True;
+-	}
++    return DISPLAY;
+ }
+ 
+-/*
+- * Called on xrandr screen change events
+- */
+-void UpdateXineramaInfo(void)
++Window EmwmActiveRoot(void)
+ {
+-	if(!is_present) return;
+-	
+-	if(g_xsi) XFree(g_xsi);
+-	g_xsi = NULL;
+-	
+-	if(!XineramaIsActive(DISPLAY) ||
+-		(g_xsi = XineramaQueryScreens(DISPLAY,&g_nxsi)) == NULL){
+-		is_active = False;
+-		return; 
+-	}
+-	is_active = True;
++    return ACTIVE_ROOT;
+ }
+ 
+-/*
+- * Retrieves the count of xinerama screens available.
+- */
+-Bool GetXineramaScreenCount(int *i)
++Bool EmwmFocusLocation(int *x, int *y)
+ {
+-	if(!is_active) {
+-		*i = 0;
+-		return False;
+-	}
+-	*i = g_nxsi;
+-	return True;
++    if (!wmGD.keyboardFocus) return False;
++    *x = wmGD.keyboardFocus->clientX;
++    *y = wmGD.keyboardFocus->clientY;
++    return True;
+ }
+ 
+-/*
+- * Retrieves Xinerama screen info from given coordinates.
+- * Returns True on success, False if xinerama is inactive or on error.
+- */
+-Bool GetXineramaScreenFromLocation(int x, int y, XineramaScreenInfo *xsi)
++int EmwmPrimaryScreen(void)
+ {
+-	int i;
+-
+-	if(!is_active) return False;
+-	
+-	if(x < 0) x=0;
+-	if(y < 0) y=0;
+-
+-	for(i=0; i < g_nxsi; i++){
+-		if((x >= g_xsi[i].x_org && x < (g_xsi[i].x_org+g_xsi[i].width)) &&
+-			(y >= g_xsi[i].y_org &&	y < (g_xsi[i].y_org+g_xsi[i].height)))
+-			break;
+-	}
+-
+-	if(i < g_nxsi){
+-		memcpy(xsi, &g_xsi[i], sizeof(XineramaScreenInfo));
+-		return True;
+-	}
+-	return False;
++    return wmGD.primaryXineramaScreen;
+ }
+-
+-/*
+- * Retrieves info for xinerama screen that contains the mouse pointer.
+- * Returns True on success, False if xinerama is inactive or on error.
+- */
+-Bool GetXineramaScreenFromPointer(XineramaScreenInfo *xsi)
+-{
+-	Window wroot, wchild;
+-	int root_x, root_y, child_x, child_y;
+-	unsigned int mask;
+-	
+-	if(!XQueryPointer(DISPLAY,ACTIVE_ROOT,&wroot,&wchild,
+-		&root_x,&root_y,&child_x,&child_y,&mask)) return False;
+-
+-	return GetXineramaScreenFromLocation(root_x,root_y,xsi);
+-}
+-
+-/*
+- * Retrieves info for xinerama screen that contains a client window
+- * with keyboard focus or the mouse pointer (in that order).
+- * Returns True on success, False if xinerama is inactive or on error.
+- */
+-Bool GetActiveXineramaScreen(XineramaScreenInfo *xsi)
+-{
+-	if(wmGD.keyboardFocus){
+-		return GetXineramaScreenFromLocation(
+-			wmGD.keyboardFocus->clientX,
+-			wmGD.keyboardFocus->clientY,xsi);
+-	}else{
+-		return GetXineramaScreenFromPointer(xsi);
+-	}
+-}
+-
+-/*
+- * Retrieves user's preferred xinerama screen.
+- * Returns True on success, False if xinerama is inactive or on error.
+- */
+-Bool GetPrimaryXineramaScreen(XineramaScreenInfo *xsi)
+-{
+-	if(!is_active) return False;
+-
+-	if(wmGD.primaryXineramaScreen >= g_nxsi ||
+-		wmGD.primaryXineramaScreen < 0){
+-		Warning("PrimaryXineramaScreen out of range");
+-		memcpy(xsi, &g_xsi[0], sizeof(XineramaScreenInfo));
+-		return True;
+-	}
+-	memcpy(xsi,&g_xsi[wmGD.primaryXineramaScreen],
+-		sizeof(XineramaScreenInfo));
+-	return True;
+-}
+-
+-/*
+- * Retrieves xinerama screen info.
+- */
+-Bool GetXineramaScreenInfo(int index, XineramaScreenInfo *xsi)
+-{
+-	if(!is_active || index >= g_nxsi) return False;
+-	memcpy(xsi, &g_xsi[index], sizeof(XineramaScreenInfo));
+-	return True;
+-}
+--- a/src/common.mf
++++ b/src/common.mf
+@@ -14,8 +14,15 @@
+ 	WmWinState.o WmXSMP.o WmImage.o WmInitWs.o WmMenu.o	WmProtocol.o \
+ 	WmBackdrop.o WmPresence.o WmWrkspace.o WmXinerama.o WmEwmh.o WmRequest.o
+ 
+-emwm: $(mwm_objs)
+-	$(CC) $(LDFLAGS) $(LIBDIRS) -o $@ $(mwm_objs) $(SYSLIBS)
++EMWM_MONITOR_CRATE ?= ../../emwm-desktop/rust/emwm
++monitor_target = $(CURDIR)/rust-target
++monitor_lib = $(monitor_target)/release/libemwm_monitor.a
++
++emwm: $(mwm_objs) $(monitor_lib)
++	$(CC) $(LDFLAGS) $(LIBDIRS) -o $@ $(mwm_objs) $(monitor_lib) $(SYSLIBS) -ldl -lpthread
++
++$(monitor_lib): $(EMWM_MONITOR_CRATE)/Cargo.toml $(EMWM_MONITOR_CRATE)/Cargo.lock $(wildcard $(EMWM_MONITOR_CRATE)/src/*.rs)
++	cargo build --locked --release --manifest-path "$(EMWM_MONITOR_CRATE)/Cargo.toml" --target-dir "$(monitor_target)"
+ 
+ .depend:
+ 	$(CC) -MM $(INCDIRS) $(mwm_objs:.o=.c) > $@
+@@ -24,6 +31,7 @@
+ 
+ clean:
+ 	-rm -f $(mwm_objs) $(wsm_objs) emwm
++	-rm -f "$(monitor_lib)"
+ 	-rm .depend
+ 
+ common_install:

@@ -1,0 +1,49 @@
+{
+  "schema": "rust-anything/bridge@1",
+  "root": "../../../apps/emwm-appearance",
+  "unit": "compositor.py",
+  "language": "python",
+  "kind": "pyo3",
+  "crate_name": "appearance-compositor-rs",
+  "exports": [
+    {
+      "name": "validate",
+      "file": "compositor.py",
+      "line": 14,
+      "params": [
+        {
+          "name": "values",
+          "ts_type": "unknown",
+          "optional": false,
+          "rest": false
+        }
+      ],
+      "returns": "unknown",
+      "is_async": false,
+      "is_generator": false,
+      "type_params": [],
+      "uses_instanceof": false
+    }
+  ],
+  "classes": [],
+  "js_only": [
+    {
+      "name": "current",
+      "file": "compositor.py",
+      "line": 34,
+      "reason": "filesystem and ConfigParser integration"
+    },
+    {
+      "name": "configuration",
+      "file": "compositor.py",
+      "line": 58,
+      "reason": "filesystem integration"
+    },
+    {
+      "name": "Controls",
+      "file": "compositor.py",
+      "line": 66,
+      "reason": "class: GTK widgets"
+    }
+  ]
+}

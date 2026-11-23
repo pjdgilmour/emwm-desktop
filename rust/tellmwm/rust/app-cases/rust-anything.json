@@ -1,0 +1,9 @@
+{
+  "schema": "rust-anything/app-cases@1",
+  "name": "tellmwm",
+  "run": [
+    "sh",
+    "reference.sh"
+  ],
+  "timeout_secs": 30
+}

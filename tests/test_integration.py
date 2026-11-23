@@ -2,6 +2,7 @@
 import io
 import json
 import os
+import shutil
 from pathlib import Path
 import subprocess
 import tarfile
@@ -13,6 +14,18 @@ ROOT = Path(__file__).resolve().parent.parent
 
 
 class SessionTests(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        if 'EMWM_TEST_SESSION_BINARY' in os.environ:
+            cls.session = Path(os.environ['EMWM_TEST_SESSION_BINARY'])
+        else:
+            cls.build = tempfile.TemporaryDirectory()
+            cls.addClassCleanup(cls.build.cleanup)
+            subprocess.run(['cargo', 'build', '--locked', '--manifest-path',
+                            ROOT / 'rust/desktop/Cargo.toml', '--target-dir', cls.build.name,
+                            '--bin', 'emwm-session', '--bin', 'xmsession'], check=True)
+            cls.session = Path(cls.build.name) / 'debug/emwm-session'
+
     def test_existing_profile_resource_order_and_component_switches(self):
         self.check_session('1')
 
@@ -27,6 +40,7 @@ class SessionTests(unittest.TestCase):
             prefix = base / 'private'
             bins = prefix / 'bin'
             bins.mkdir(parents=True)
+            (bins / 'emwm-session').symlink_to(self.session)
             data = base / 'data'
             data.mkdir()
             config = home / '.config/emwm-desktop'
@@ -89,21 +103,82 @@ if name=='xmsm': time.sleep(.4)
             for path, contents in before.items():
                 self.assertEqual(path.read_bytes(), contents)
 
+    def test_xmsession_rotates_log_and_respects_profile(self):
+        with tempfile.TemporaryDirectory() as temp:
+            base = Path(temp)
+            launcher = base / 'xmsession'
+            shutil.copy2(self.session.with_name('xmsession'), launcher)
+            for name, command in [('xmsm', 'echo "manager ${FROM_PROFILE:-}"; exit 23'),
+                                  ('xrdb', 'echo "xrdb $*"')]:
+                path = base / name
+                path.write_text('#!/bin/sh\n' + command + '\n')
+                path.chmod(0o755)
+            for name in ['.Xdefaults', '.Xresources']:
+                (base / name).touch()
+            log = base / '.xmsession.log'
+            log.write_text('original log')
+            env = dict(os.environ, HOME=temp, PATH=str(base) + ':/usr/bin')
+            plain = subprocess.run([launcher], env=env, timeout=5)
+            self.assertEqual(plain.returncode, 23)
+            first = log.read_text()
+            self.assertEqual((base / '.xmsession.log.old').read_text(), 'original log')
+            self.assertLess(first.index('xrdb -merge ' + str(base / '.Xdefaults')),
+                            first.index('xrdb -merge ' + str(base / '.Xresources')))
+            (base / '.Xprofile').write_text('export FROM_PROFILE="$1"\nXDEFAULTS=/nonexistent-defaults\n')
+            profiled = subprocess.run([launcher, 'example'], env=env, timeout=5)
+            self.assertEqual(profiled.returncode, 23)
+            self.assertEqual((base / '.xmsession.log.old').read_text(), first)
+            self.assertIn('manager example', log.read_text())
+            self.assertNotIn('.Xdefaults', log.read_text())
+
     def test_requires_x11_without_modifying_home(self):
         with tempfile.TemporaryDirectory() as temp:
             env=dict(os.environ,HOME=temp)
             env.pop('DISPLAY',None)
-            proc=subprocess.run(['sh', str(ROOT/'session/emwm-desktop-session')],
+            proc=subprocess.run([self.session],
                                 env=env,capture_output=True,text=True)
             self.assertNotEqual(proc.returncode,0)
             self.assertIn('X11 display',proc.stderr)
             self.assertEqual(list(Path(temp).iterdir()),[])
 
+    def test_termination_reaps_owned_children(self):
+        with tempfile.TemporaryDirectory() as temp:
+            base = Path(temp)
+            bins = base / 'bin'
+            bins.mkdir()
+            config = base / 'config/emwm-desktop'
+            config.mkdir(parents=True)
+            (config / 'session.conf').write_text(
+                'EMWM_DESKTOP_NETWORK=0\nEMWM_DESKTOP_KEYRING=0\nEMWM_DESKTOP_POLKIT=0\n')
+            for name in ['xmsm', 'emwm-compositor', 'emwm-desktop-icons']:
+                script = bins / name
+                script.write_text(f'#!/bin/sh\necho "$$" > "$HOME/{name}.pid"\nexec sleep 10\n')
+                script.chmod(0o755)
+            for name in ['xrdb', 'dbus-update-activation-environment']:
+                (bins / name).symlink_to('/bin/true')
+            env = dict(os.environ, HOME=temp, DISPLAY=':fixture', XDG_STATE_HOME=str(base/'state'),
+                       XDG_CONFIG_HOME=str(base/'config'), EMWM_DESKTOP_PREFIX=temp,
+                       DBUS_SESSION_BUS_ADDRESS='unix:path=/nonexistent-test-bus')
+            with subprocess.Popen([self.session], env=env) as session:
+                try:
+                    deadline = time.monotonic() + 5
+                    while len(list(base.glob('*.pid'))) < 3 and time.monotonic() < deadline:
+                        time.sleep(.03)
+                    session.terminate()
+                    self.assertEqual(session.wait(timeout=6), 0)
+                    pids = [int(path.read_text()) for path in base.glob('*.pid')]
+                    self.assertEqual(len(pids), 3)
+                    self.assertTrue(all(not Path(f'/proc/{pid}').exists() for pid in pids))
+                finally:
+                    if session.poll() is None:
+                        session.kill()
+
 
 class PackageTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        packages=list((ROOT/'dist').glob('*.deb'))
+        packages=([Path(os.environ['EMWM_TEST_PACKAGE'])] if 'EMWM_TEST_PACKAGE' in os.environ
+                  else list((ROOT/'dist').glob('*.deb')))
         if not packages:
             raise unittest.SkipTest('Gere um pacote com --build-only para verificar seu conteúdo.')
         cls.package=max(packages,key=lambda p:p.stat().st_mtime)
@@ -115,9 +190,9 @@ class PackageTests(unittest.TestCase):
         return self.archive.extractfile(self.files[path]).read()
 
     def test_private_layout_and_permissions(self):
-        required=['usr/bin/emwm-appearance','usr/lib/emwm-desktop/appearance/login_helper.py',
-                  'usr/lib/emwm-desktop/appearance/wallpaper.py',
-                  'usr/lib/emwm-desktop/appearance/wallpaper_ui.py',
+        required=['usr/bin/emwm-appearance', 'usr/lib/emwm-desktop/bin/emwm-session',
+                  'usr/lib/emwm-desktop/appearance/emwm-appearance',
+                  'usr/lib/emwm-desktop/appearance/emwm-appearance-login',
                   'usr/bin/emwm-desktop-session','usr/share/xsessions/emwm-desktop.desktop',
                   'usr/share/emwm-desktop/app-defaults/Emwm','usr/share/emwm-desktop/app-defaults/XmSm',
                   'usr/share/emwm-desktop/emwm-applications.menu']
@@ -126,6 +201,11 @@ class PackageTests(unittest.TestCase):
             required.append('usr/lib/emwm-desktop/bin/'+name)
         for path in required:
             self.assertIn(path,self.files)
+        for native in ('bin/emwm-session', 'bin/emwm-desktop-icons', 'bin/emwm-compositor',
+                       'bin/emwm-wallpaper-tool', 'bin/tellmwm', 'bin/xmtray', 'bin/xmsession',
+                       'appearance/emwm-appearance',
+                       'appearance/emwm-appearance-login'):
+            self.assertEqual(self.read('usr/lib/emwm-desktop/' + native)[:4], b'\x7fELF', native)
         self.assertEqual(self.files['usr/lib/emwm-desktop/bin/xmsm'].mode & 0o7777,0o4755)
         privileged=[path for path,member in self.files.items() if member.mode & 0o6000]
         self.assertEqual(privileged,['usr/lib/emwm-desktop/bin/xmsm'])
@@ -155,15 +235,21 @@ class PackageTests(unittest.TestCase):
                          'emwm-utils/src/tray.c','emwm-utils/src/tray.h',
                          'emwm-desktop/patches/emwm-utils/0001-toolchest-tray.patch',
                          'emwm-desktop/scripts/install.py',
+                         'emwm-desktop/rust/gradient-rs/src/port.rs',
+                         'emwm-desktop/rust/gradient-rs/Cargo.lock',
+                         'emwm-desktop/rust/dependency-sources/sources.json',
                          'emwm-desktop/third_party/tellmwm/COPYING',
                          'emwm-desktop/apps/emwm-wallpaper-tool/src/backdrops.cpp']:
                 self.assertIn(path,names)
             self.assertFalse(any('/.git/' in p or p.endswith('.o') for p in names))
             self.assertIn(b'TrayStart();', sources.extractfile('emwm-utils/src/tbmain.c').read())
             self.assertIn(b'widget_class->drag_end = on_drag_end;', sources.extractfile('pcmanfm/src/desktop.c').read())
+        bindings = self.read('usr/share/emwm-desktop/system.emwmrc').decode()
+        for direction in ['Left', 'Right', 'Up', 'Down']:
+            self.assertRegex(bindings, rf'Super<Key>{direction}\s+window\s+f\.tile {direction.lower()}')
         deps=subprocess.check_output(['dpkg-deb','-f',str(self.package),'Depends'],text=True)
         self.assertNotIn('picom', deps)
-        for package in ['libxm4','libgtkmm-3.0','libgl1','libxdamage1','gvfs','gnome-keyring']:
+        for package in ['libxm4','libgtk-3','libgl1','libxdamage1','gvfs','gnome-keyring']:
             self.assertIn(package,deps)
 
 

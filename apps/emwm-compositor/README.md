@@ -74,6 +74,13 @@ continuar alternando o backend pela interface.
 
 ## Compilação e testes
 
+O executável é compilado a partir de `rust/compositor`, com Rust 1.85 ou superior
+e as bibliotecas X11, XRender e GLX do sistema. O CMake mantém os comandos de
+compilação abaixo. O código C++ em `src/` serve de referência nos testes da CLI.
+Com `rust-anything` no PATH, execute
+`apps/emwm-compositor/tests/replay-cli.sh build/compositor/emwm-compositor`
+para comparar o código de saída e as duas saídas de texto dos oito casos.
+
 ```sh
 cmake -S apps/emwm-compositor -B build/compositor -DCMAKE_BUILD_TYPE=Release
 cmake --build build/compositor -j4

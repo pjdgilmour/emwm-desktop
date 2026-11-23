@@ -5,7 +5,7 @@ import tempfile
 import socket
 import unittest
 
-loader = importlib.machinery.SourceFileLoader('icons', str(Path(__file__).resolve().parents[1] / 'emwm-desktop-icons'))
+loader = importlib.machinery.SourceFileLoader('icons', str(Path(__file__).resolve().parents[3] / 'rust/desktop/reference/icons.py'))
 spec = importlib.util.spec_from_loader(loader.name, loader)
 icons = importlib.util.module_from_spec(spec)
 loader.exec_module(icons)

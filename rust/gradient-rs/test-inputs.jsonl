@@ -1,0 +1,12 @@
+{"fn": "validate", "args": [{"mode": "diagonal", "active_start": "#123456"}]}
+{"fn": "resources", "args": [{"mode": "diagonal", "active_start": "#123456", "active_end": "#7399ba", "active_text": "#ffffff", "inactive_start": "#b0b0b0", "inactive_end": "#707070", "inactive_text": "#101010"}]}
+{"fn": "validate", "args": [{"mode": "diagonal", "active_start": "#123456", "active_end": "#7399ba", "active_text": "#ffffff", "inactive_start": "#b0b0b0", "inactive_end": "#707070", "inactive_text": "#101010"}]}
+{"fn": "validate", "args": [{"mode": "none", "active_start": "#123456", "active_end": "#7399ba", "active_text": "#ffffff", "inactive_start": "#b0b0b0", "inactive_end": "#707070", "inactive_text": "#101010"}]}
+{"fn": "resources", "args": [{"mode": "none", "active_start": "#123456", "active_end": "#7399ba", "active_text": "#ffffff", "inactive_start": "#b0b0b0", "inactive_end": "#707070", "inactive_text": "#101010"}]}
+{"fn": "validate", "args": [{"mode": "invalid"}]}
+{"fn": "validate", "args": [{"active_start": "red\nBad: value"}]}
+{"fn": "validate", "args": [[]]}
+{"fn": "validate", "args": [{"inactive_text": null}]}
+{"fn": "resources", "args": [{"mode": "vertical"}]}
+{"fn": "validate", "args": [{"mode": "vertical"}]}
+{"fn": "validate", "args": [{"active_start": "#ABCDEF"}]}

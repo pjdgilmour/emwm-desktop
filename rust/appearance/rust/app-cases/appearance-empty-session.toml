@@ -1,0 +1,7 @@
+bin.name = "emwm-appearance"
+args = ["--session"]
+env.add.HOME = "."
+env.add.XDG_CONFIG_HOME = "empty-config"
+env.add.XDG_STATE_HOME = "empty-state"
+status.code = 0
+fs.sandbox = true

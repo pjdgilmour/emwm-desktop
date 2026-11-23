@@ -1,0 +1,11 @@
+{"name":"version","args":["-v"]}
+{"name":"help","args":["-h"]}
+{"name":"help-command","args":["help"]}
+{"name":"unknown-command","args":["--version"]}
+{"name":"missing-manager-list","args":[]}
+{"name":"missing-manager-backdrop","args":["backdrop","ws0","none"]}
+{"name":"missing-manager-activate","args":["setws","ws1"]}
+{"name":"missing-manager-name","args":["namews","ws0","Novo nome"]}
+{"name":"missing-manager-add","args":["addws"]}
+{"name":"missing-manager-delete","args":["delws","ws0"]}
+{"name":"missing-display","args":["-v"],"env":{"DISPLAY":""}}

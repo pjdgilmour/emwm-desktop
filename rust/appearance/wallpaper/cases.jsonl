@@ -1,0 +1,11 @@
+{"fn": "dimensions", "args": [1, 1], "ok": {"$tuple": [1, 1]}}
+{"fn": "dimensions", "args": ["3", "45"], "ok": {"$tuple": [3, 45]}}
+{"fn": "dimensions", "args": [3.9, 4], "ok": {"$tuple": [3, 4]}}
+{"fn": "dimensions", "args": [true, false], "error": "ValueError: Resolução inválida ou imagem maior que 40 megapixels."}
+{"fn": "dimensions", "args": [-1, 1], "error": "ValueError: Resolução inválida ou imagem maior que 40 megapixels."}
+{"fn": "dimensions", "args": [16384, 1], "ok": {"$tuple": [16384, 1]}}
+{"fn": "dimensions", "args": [16385, 1], "error": "ValueError: Resolução inválida ou imagem maior que 40 megapixels."}
+{"fn": "dimensions", "args": [8000, 5000], "ok": {"$tuple": [8000, 5000]}}
+{"fn": "dimensions", "args": [8001, 5000], "error": "ValueError: Resolução inválida ou imagem maior que 40 megapixels."}
+{"fn": "dimensions", "args": ["x", 2], "error": "ValueError: invalid literal for int() with base 10: 'x'"}
+{"fn": "dimensions", "args": [null, 5], "error": "TypeError: int() argument must be a string, a bytes-like object or a real number, not 'NoneType'"}

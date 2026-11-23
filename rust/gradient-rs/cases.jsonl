@@ -1,0 +1,88 @@
+{"fn": "validate", "args": ["x"], "error": "ValueError: Configuração de gradiente inválida."}
+{"fn": "validate", "args": [{"a": "b"}], "ok": {"mode": "none", "active_start": "#24466b", "active_end": "#7399ba", "active_text": "#ffffff", "inactive_start": "#b0b0b0", "inactive_end": "#707070", "inactive_text": "#101010"}}
+{"fn": "validate", "args": [["a", 1]], "error": "ValueError: Configuração de gradiente inválida."}
+{"fn": "validate", "args": [0], "error": "ValueError: Configuração de gradiente inválida."}
+{"fn": "validate", "args": [{}], "ok": {"mode": "none", "active_start": "#24466b", "active_end": "#7399ba", "active_text": "#ffffff", "inactive_start": "#b0b0b0", "inactive_end": "#707070", "inactive_text": "#101010"}}
+{"fn": "validate", "args": [true], "error": "ValueError: Configuração de gradiente inválida."}
+{"fn": "validate", "args": [[]], "error": "ValueError: Configuração de gradiente inválida."}
+{"fn": "validate", "args": [{"a": {"b": "c"}}], "ok": {"mode": "none", "active_start": "#24466b", "active_end": "#7399ba", "active_text": "#ffffff", "inactive_start": "#b0b0b0", "inactive_end": "#707070", "inactive_text": "#101010"}}
+{"fn": "validate", "args": [null], "error": "ValueError: Configuração de gradiente inválida."}
+{"fn": "validate", "args": [{"zebra": 1, "apple": 2, "10": 3, "2": 4, "é": 5, "Apple": 6}], "ok": {"mode": "none", "active_start": "#24466b", "active_end": "#7399ba", "active_text": "#ffffff", "inactive_start": "#b0b0b0", "inactive_end": "#707070", "inactive_text": "#101010"}}
+{"fn": "validate", "args": [{"n": 9007199254740993, "f": 1e+21, "t": 0.1, "neg": -7}], "ok": {"mode": "none", "active_start": "#24466b", "active_end": "#7399ba", "active_text": "#ffffff", "inactive_start": "#b0b0b0", "inactive_end": "#707070", "inactive_text": "#101010"}}
+{"fn": "validate", "args": [[3, 1, 2]], "error": "ValueError: Configuração de gradiente inválida."}
+{"fn": "resources", "args": [["a", 1]], "error": "ValueError: Configuração de gradiente inválida."}
+{"fn": "resources", "args": [{"a": {"b": "c"}}], "ok": "Emwm*titleGradient: none\nEmwm*titleGradientActiveStart: #24466b\nEmwm*titleGradientActiveEnd: #7399ba\nEmwm*titleGradientActiveText: #ffffff\nEmwm*titleGradientInactiveStart: #b0b0b0\nEmwm*titleGradientInactiveEnd: #707070\nEmwm*titleGradientInactiveText: #101010\n"}
+{"fn": "resources", "args": [{}], "ok": "Emwm*titleGradient: none\nEmwm*titleGradientActiveStart: #24466b\nEmwm*titleGradientActiveEnd: #7399ba\nEmwm*titleGradientActiveText: #ffffff\nEmwm*titleGradientInactiveStart: #b0b0b0\nEmwm*titleGradientInactiveEnd: #707070\nEmwm*titleGradientInactiveText: #101010\n"}
+{"fn": "resources", "args": [null], "error": "ValueError: Configuração de gradiente inválida."}
+{"fn": "resources", "args": [[]], "error": "ValueError: Configuração de gradiente inválida."}
+{"fn": "resources", "args": ["x"], "error": "ValueError: Configuração de gradiente inválida."}
+{"fn": "resources", "args": [{"a": "b"}], "ok": "Emwm*titleGradient: none\nEmwm*titleGradientActiveStart: #24466b\nEmwm*titleGradientActiveEnd: #7399ba\nEmwm*titleGradientActiveText: #ffffff\nEmwm*titleGradientInactiveStart: #b0b0b0\nEmwm*titleGradientInactiveEnd: #707070\nEmwm*titleGradientInactiveText: #101010\n"}
+{"fn": "resources", "args": [0], "error": "ValueError: Configuração de gradiente inválida."}
+{"fn": "resources", "args": [true], "error": "ValueError: Configuração de gradiente inválida."}
+{"fn": "resources", "args": [{"zebra": 1, "apple": 2, "10": 3, "2": 4, "é": 5, "Apple": 6}], "ok": "Emwm*titleGradient: none\nEmwm*titleGradientActiveStart: #24466b\nEmwm*titleGradientActiveEnd: #7399ba\nEmwm*titleGradientActiveText: #ffffff\nEmwm*titleGradientInactiveStart: #b0b0b0\nEmwm*titleGradientInactiveEnd: #707070\nEmwm*titleGradientInactiveText: #101010\n"}
+{"fn": "resources", "args": [{"n": 9007199254740993, "f": 1e+21, "t": 0.1, "neg": -7}], "ok": "Emwm*titleGradient: none\nEmwm*titleGradientActiveStart: #24466b\nEmwm*titleGradientActiveEnd: #7399ba\nEmwm*titleGradientActiveText: #ffffff\nEmwm*titleGradientInactiveStart: #b0b0b0\nEmwm*titleGradientInactiveEnd: #707070\nEmwm*titleGradientInactiveText: #101010\n"}
+{"fn": "resources", "args": [[3, 1, 2]], "error": "ValueError: Configuração de gradiente inválida."}
+{"fn": "validate", "args": [{}], "ok": {"mode": "none", "active_start": "#24466b", "active_end": "#7399ba", "active_text": "#ffffff", "inactive_start": "#b0b0b0", "inactive_end": "#707070", "inactive_text": "#101010"}}
+{"fn": "resources", "args": [{}], "ok": "Emwm*titleGradient: none\nEmwm*titleGradientActiveStart: #24466b\nEmwm*titleGradientActiveEnd: #7399ba\nEmwm*titleGradientActiveText: #ffffff\nEmwm*titleGradientInactiveStart: #b0b0b0\nEmwm*titleGradientInactiveEnd: #707070\nEmwm*titleGradientInactiveText: #101010\n"}
+{"fn": "validate", "args": [[]], "error": "ValueError: Configuração de gradiente inválida."}
+{"fn": "resources", "args": [[]], "error": "ValueError: Configuração de gradiente inválida."}
+{"fn": "validate", "args": [null], "error": "ValueError: Configuração de gradiente inválida."}
+{"fn": "resources", "args": [null], "error": "ValueError: Configuração de gradiente inválida."}
+{"fn": "validate", "args": [{"unknown": true}], "ok": {"mode": "none", "active_start": "#24466b", "active_end": "#7399ba", "active_text": "#ffffff", "inactive_start": "#b0b0b0", "inactive_end": "#707070", "inactive_text": "#101010"}}
+{"fn": "resources", "args": [{"unknown": true}], "ok": "Emwm*titleGradient: none\nEmwm*titleGradientActiveStart: #24466b\nEmwm*titleGradientActiveEnd: #7399ba\nEmwm*titleGradientActiveText: #ffffff\nEmwm*titleGradientInactiveStart: #b0b0b0\nEmwm*titleGradientInactiveEnd: #707070\nEmwm*titleGradientInactiveText: #101010\n"}
+{"fn": "validate", "args": [{"mode": "NONE"}], "error": "ValueError: Direção de gradiente inválida."}
+{"fn": "resources", "args": [{"mode": "NONE"}], "error": "ValueError: Direção de gradiente inválida."}
+{"fn": "validate", "args": [{"mode": null}], "error": "ValueError: Direção de gradiente inválida."}
+{"fn": "resources", "args": [{"mode": null}], "error": "ValueError: Direção de gradiente inválida."}
+{"fn": "validate", "args": [{"mode": []}], "error": "ValueError: Direção de gradiente inválida."}
+{"fn": "resources", "args": [{"mode": []}], "error": "ValueError: Direção de gradiente inválida."}
+{"fn": "validate", "args": [{"active_start": "#ABCDáF"}], "error": "ValueError: Cor do gradiente inválida: use #RRGGBB."}
+{"fn": "resources", "args": [{"active_start": "#ABCDáF"}], "error": "ValueError: Cor do gradiente inválida: use #RRGGBB."}
+{"fn": "validate", "args": [{"active_start": "#123456\n"}], "error": "ValueError: Cor do gradiente inválida: use #RRGGBB."}
+{"fn": "resources", "args": [{"active_start": "#123456\n"}], "error": "ValueError: Cor do gradiente inválida: use #RRGGBB."}
+{"fn": "validate", "args": [{"mode": "invalid", "active_start": null}], "error": "ValueError: Direção de gradiente inválida."}
+{"fn": "resources", "args": [{"mode": "invalid", "active_start": null}], "error": "ValueError: Direção de gradiente inválida."}
+{"fn": "validate", "args": [{"mode": "none"}], "ok": {"mode": "none", "active_start": "#24466b", "active_end": "#7399ba", "active_text": "#ffffff", "inactive_start": "#b0b0b0", "inactive_end": "#707070", "inactive_text": "#101010"}}
+{"fn": "resources", "args": [{"mode": "none"}], "ok": "Emwm*titleGradient: none\nEmwm*titleGradientActiveStart: #24466b\nEmwm*titleGradientActiveEnd: #7399ba\nEmwm*titleGradientActiveText: #ffffff\nEmwm*titleGradientInactiveStart: #b0b0b0\nEmwm*titleGradientInactiveEnd: #707070\nEmwm*titleGradientInactiveText: #101010\n"}
+{"fn": "validate", "args": [{"mode": "horizontal"}], "ok": {"mode": "horizontal", "active_start": "#24466b", "active_end": "#7399ba", "active_text": "#ffffff", "inactive_start": "#b0b0b0", "inactive_end": "#707070", "inactive_text": "#101010"}}
+{"fn": "resources", "args": [{"mode": "horizontal"}], "ok": "Emwm*titleGradient: horizontal\nEmwm*titleGradientActiveStart: #24466b\nEmwm*titleGradientActiveEnd: #7399ba\nEmwm*titleGradientActiveText: #ffffff\nEmwm*titleGradientInactiveStart: #b0b0b0\nEmwm*titleGradientInactiveEnd: #707070\nEmwm*titleGradientInactiveText: #101010\n"}
+{"fn": "validate", "args": [{"mode": "vertical"}], "ok": {"mode": "vertical", "active_start": "#24466b", "active_end": "#7399ba", "active_text": "#ffffff", "inactive_start": "#b0b0b0", "inactive_end": "#707070", "inactive_text": "#101010"}}
+{"fn": "resources", "args": [{"mode": "vertical"}], "ok": "Emwm*titleGradient: vertical\nEmwm*titleGradientActiveStart: #24466b\nEmwm*titleGradientActiveEnd: #7399ba\nEmwm*titleGradientActiveText: #ffffff\nEmwm*titleGradientInactiveStart: #b0b0b0\nEmwm*titleGradientInactiveEnd: #707070\nEmwm*titleGradientInactiveText: #101010\n"}
+{"fn": "validate", "args": [{"mode": "diagonal"}], "ok": {"mode": "diagonal", "active_start": "#24466b", "active_end": "#7399ba", "active_text": "#ffffff", "inactive_start": "#b0b0b0", "inactive_end": "#707070", "inactive_text": "#101010"}}
+{"fn": "resources", "args": [{"mode": "diagonal"}], "ok": "Emwm*titleGradient: diagonal\nEmwm*titleGradientActiveStart: #24466b\nEmwm*titleGradientActiveEnd: #7399ba\nEmwm*titleGradientActiveText: #ffffff\nEmwm*titleGradientInactiveStart: #b0b0b0\nEmwm*titleGradientInactiveEnd: #707070\nEmwm*titleGradientInactiveText: #101010\n"}
+{"fn": "validate", "args": [{"active_start": "#AbC09F"}], "ok": {"mode": "none", "active_start": "#abc09f", "active_end": "#7399ba", "active_text": "#ffffff", "inactive_start": "#b0b0b0", "inactive_end": "#707070", "inactive_text": "#101010"}}
+{"fn": "resources", "args": [{"active_start": "#AbC09F"}], "ok": "Emwm*titleGradient: none\nEmwm*titleGradientActiveStart: #abc09f\nEmwm*titleGradientActiveEnd: #7399ba\nEmwm*titleGradientActiveText: #ffffff\nEmwm*titleGradientInactiveStart: #b0b0b0\nEmwm*titleGradientInactiveEnd: #707070\nEmwm*titleGradientInactiveText: #101010\n"}
+{"fn": "validate", "args": [{"active_start": false}], "error": "ValueError: Cor do gradiente inválida: use #RRGGBB."}
+{"fn": "resources", "args": [{"active_start": false}], "error": "ValueError: Cor do gradiente inválida: use #RRGGBB."}
+{"fn": "validate", "args": [{"active_end": "#AbC09F"}], "ok": {"mode": "none", "active_start": "#24466b", "active_end": "#abc09f", "active_text": "#ffffff", "inactive_start": "#b0b0b0", "inactive_end": "#707070", "inactive_text": "#101010"}}
+{"fn": "resources", "args": [{"active_end": "#AbC09F"}], "ok": "Emwm*titleGradient: none\nEmwm*titleGradientActiveStart: #24466b\nEmwm*titleGradientActiveEnd: #abc09f\nEmwm*titleGradientActiveText: #ffffff\nEmwm*titleGradientInactiveStart: #b0b0b0\nEmwm*titleGradientInactiveEnd: #707070\nEmwm*titleGradientInactiveText: #101010\n"}
+{"fn": "validate", "args": [{"active_end": false}], "error": "ValueError: Cor do gradiente inválida: use #RRGGBB."}
+{"fn": "resources", "args": [{"active_end": false}], "error": "ValueError: Cor do gradiente inválida: use #RRGGBB."}
+{"fn": "validate", "args": [{"active_text": "#AbC09F"}], "ok": {"mode": "none", "active_start": "#24466b", "active_end": "#7399ba", "active_text": "#abc09f", "inactive_start": "#b0b0b0", "inactive_end": "#707070", "inactive_text": "#101010"}}
+{"fn": "resources", "args": [{"active_text": "#AbC09F"}], "ok": "Emwm*titleGradient: none\nEmwm*titleGradientActiveStart: #24466b\nEmwm*titleGradientActiveEnd: #7399ba\nEmwm*titleGradientActiveText: #abc09f\nEmwm*titleGradientInactiveStart: #b0b0b0\nEmwm*titleGradientInactiveEnd: #707070\nEmwm*titleGradientInactiveText: #101010\n"}
+{"fn": "validate", "args": [{"active_text": false}], "error": "ValueError: Cor do gradiente inválida: use #RRGGBB."}
+{"fn": "resources", "args": [{"active_text": false}], "error": "ValueError: Cor do gradiente inválida: use #RRGGBB."}
+{"fn": "validate", "args": [{"inactive_start": "#AbC09F"}], "ok": {"mode": "none", "active_start": "#24466b", "active_end": "#7399ba", "active_text": "#ffffff", "inactive_start": "#abc09f", "inactive_end": "#707070", "inactive_text": "#101010"}}
+{"fn": "resources", "args": [{"inactive_start": "#AbC09F"}], "ok": "Emwm*titleGradient: none\nEmwm*titleGradientActiveStart: #24466b\nEmwm*titleGradientActiveEnd: #7399ba\nEmwm*titleGradientActiveText: #ffffff\nEmwm*titleGradientInactiveStart: #abc09f\nEmwm*titleGradientInactiveEnd: #707070\nEmwm*titleGradientInactiveText: #101010\n"}
+{"fn": "validate", "args": [{"inactive_start": false}], "error": "ValueError: Cor do gradiente inválida: use #RRGGBB."}
+{"fn": "resources", "args": [{"inactive_start": false}], "error": "ValueError: Cor do gradiente inválida: use #RRGGBB."}
+{"fn": "validate", "args": [{"inactive_end": "#AbC09F"}], "ok": {"mode": "none", "active_start": "#24466b", "active_end": "#7399ba", "active_text": "#ffffff", "inactive_start": "#b0b0b0", "inactive_end": "#abc09f", "inactive_text": "#101010"}}
+{"fn": "resources", "args": [{"inactive_end": "#AbC09F"}], "ok": "Emwm*titleGradient: none\nEmwm*titleGradientActiveStart: #24466b\nEmwm*titleGradientActiveEnd: #7399ba\nEmwm*titleGradientActiveText: #ffffff\nEmwm*titleGradientInactiveStart: #b0b0b0\nEmwm*titleGradientInactiveEnd: #abc09f\nEmwm*titleGradientInactiveText: #101010\n"}
+{"fn": "validate", "args": [{"inactive_end": false}], "error": "ValueError: Cor do gradiente inválida: use #RRGGBB."}
+{"fn": "resources", "args": [{"inactive_end": false}], "error": "ValueError: Cor do gradiente inválida: use #RRGGBB."}
+{"fn": "validate", "args": [{"inactive_text": "#AbC09F"}], "ok": {"mode": "none", "active_start": "#24466b", "active_end": "#7399ba", "active_text": "#ffffff", "inactive_start": "#b0b0b0", "inactive_end": "#707070", "inactive_text": "#abc09f"}}
+{"fn": "resources", "args": [{"inactive_text": "#AbC09F"}], "ok": "Emwm*titleGradient: none\nEmwm*titleGradientActiveStart: #24466b\nEmwm*titleGradientActiveEnd: #7399ba\nEmwm*titleGradientActiveText: #ffffff\nEmwm*titleGradientInactiveStart: #b0b0b0\nEmwm*titleGradientInactiveEnd: #707070\nEmwm*titleGradientInactiveText: #abc09f\n"}
+{"fn": "validate", "args": [{"inactive_text": false}], "error": "ValueError: Cor do gradiente inválida: use #RRGGBB."}
+{"fn": "resources", "args": [{"inactive_text": false}], "error": "ValueError: Cor do gradiente inválida: use #RRGGBB."}
+{"fn": "validate", "args": [{"mode": "diagonal", "active_start": "#123456"}], "ok": {"mode": "diagonal", "active_start": "#123456", "active_end": "#7399ba", "active_text": "#ffffff", "inactive_start": "#b0b0b0", "inactive_end": "#707070", "inactive_text": "#101010"}}
+{"fn": "resources", "args": [{"mode": "diagonal", "active_start": "#123456", "active_end": "#7399ba", "active_text": "#ffffff", "inactive_start": "#b0b0b0", "inactive_end": "#707070", "inactive_text": "#101010"}], "ok": "Emwm*titleGradient: diagonal\nEmwm*titleGradientActiveStart: #123456\nEmwm*titleGradientActiveEnd: #7399ba\nEmwm*titleGradientActiveText: #ffffff\nEmwm*titleGradientInactiveStart: #b0b0b0\nEmwm*titleGradientInactiveEnd: #707070\nEmwm*titleGradientInactiveText: #101010\n"}
+{"fn": "validate", "args": [{"mode": "diagonal", "active_start": "#123456", "active_end": "#7399ba", "active_text": "#ffffff", "inactive_start": "#b0b0b0", "inactive_end": "#707070", "inactive_text": "#101010"}], "ok": {"mode": "diagonal", "active_start": "#123456", "active_end": "#7399ba", "active_text": "#ffffff", "inactive_start": "#b0b0b0", "inactive_end": "#707070", "inactive_text": "#101010"}}
+{"fn": "validate", "args": [{"mode": "none", "active_start": "#123456", "active_end": "#7399ba", "active_text": "#ffffff", "inactive_start": "#b0b0b0", "inactive_end": "#707070", "inactive_text": "#101010"}], "ok": {"mode": "none", "active_start": "#123456", "active_end": "#7399ba", "active_text": "#ffffff", "inactive_start": "#b0b0b0", "inactive_end": "#707070", "inactive_text": "#101010"}}
+{"fn": "resources", "args": [{"mode": "none", "active_start": "#123456", "active_end": "#7399ba", "active_text": "#ffffff", "inactive_start": "#b0b0b0", "inactive_end": "#707070", "inactive_text": "#101010"}], "ok": "Emwm*titleGradient: none\nEmwm*titleGradientActiveStart: #123456\nEmwm*titleGradientActiveEnd: #7399ba\nEmwm*titleGradientActiveText: #ffffff\nEmwm*titleGradientInactiveStart: #b0b0b0\nEmwm*titleGradientInactiveEnd: #707070\nEmwm*titleGradientInactiveText: #101010\n"}
+{"fn": "validate", "args": [{"mode": "invalid"}], "error": "ValueError: Direção de gradiente inválida."}
+{"fn": "validate", "args": [{"active_start": "red\nBad: value"}], "error": "ValueError: Cor do gradiente inválida: use #RRGGBB."}
+{"fn": "validate", "args": [[]], "error": "ValueError: Configuração de gradiente inválida."}
+{"fn": "validate", "args": [{"inactive_text": null}], "error": "ValueError: Cor do gradiente inválida: use #RRGGBB."}
+{"fn": "resources", "args": [{"mode": "vertical"}], "ok": "Emwm*titleGradient: vertical\nEmwm*titleGradientActiveStart: #24466b\nEmwm*titleGradientActiveEnd: #7399ba\nEmwm*titleGradientActiveText: #ffffff\nEmwm*titleGradientInactiveStart: #b0b0b0\nEmwm*titleGradientInactiveEnd: #707070\nEmwm*titleGradientInactiveText: #101010\n"}
+{"fn": "validate", "args": [{"mode": "vertical"}], "ok": {"mode": "vertical", "active_start": "#24466b", "active_end": "#7399ba", "active_text": "#ffffff", "inactive_start": "#b0b0b0", "inactive_end": "#707070", "inactive_text": "#101010"}}
+{"fn": "validate", "args": [{"active_start": "#ABCDEF"}], "ok": {"mode": "none", "active_start": "#abcdef", "active_end": "#7399ba", "active_text": "#ffffff", "inactive_start": "#b0b0b0", "inactive_end": "#707070", "inactive_text": "#101010"}}

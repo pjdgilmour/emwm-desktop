@@ -1,5 +1,6 @@
 # SPDX-License-Identifier: GPL-3.0-only
 """Title-bar gradient preferences and their Xresources representation."""
+import os
 import re
 
 DEFAULTS = {'mode': 'none', 'active_start': '#24466b', 'active_end': '#7399ba',
@@ -27,6 +28,15 @@ def validate(values):
 
 def resources(values):
     return ''.join(f'Emwm*{RESOURCES[key]}: {value}\n' for key, value in validate(values).items())
+
+
+# Source-only checkouts can run the Python reference before building the extension.
+if os.environ.get('RUST_ANYTHING_UNIT_GRADIENT') != 'original':
+    try:
+        from gradient_rs import resources, validate
+    except ModuleNotFoundError as error:
+        if error.name != 'gradient_rs' or os.environ.get('RUST_ANYTHING_MODE') == 'new':
+            raise
 
 
 class Controls:

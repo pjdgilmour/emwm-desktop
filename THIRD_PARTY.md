@@ -6,7 +6,7 @@ transfere a autoria nem substitui as licenças dos componentes.
 | Componente | Origem | Licença / avisos |
 | --- | --- | --- |
 | EMWM | https://github.com/alx210/emwm | Preservar `COPYING` (texto LGPL 2.1) e os avisos específicos dos arquivos Motif/EMWM. |
-| Alterações do WM | https://github.com/pjdgilmour/emwm | Botão de fechar clássico e preservação de ARGB; seguem os avisos do projeto. |
+| Alterações do WM | https://github.com/pjdgilmour/emwm | Botão de fechar clássico, preservação de ARGB e encaixe de janelas pelo teclado; seguem os avisos do projeto. |
 | emwm-utils | https://github.com/alx210/emwm-utils | MIT, copyright alx@fastestcode.org. |
 | Alterações dos utilitários | https://github.com/pjdgilmour/emwm-utils | Menus XDG e bandeja xmtray; MIT. |
 | tellmwm 1.2 | https://fastestcode.org/emwm.html | Licença original em `third_party/tellmwm/COPYING`: redistribuição/modificação com crédito ao autor e link à origem. |
@@ -20,8 +20,7 @@ Autores originais do EMWM incluem The Open Group (Motif) e alx / fastestcode.org
 Os cabeçalhos originais são mantidos nos snapshots dos forks. `sources.lock.json`
 identifica precisamente os commits de base usados. As alterações locais em
 `patches/emwm-utils/`, incluindo a bandeja integrada ao Toolchest, mantêm a
-licença MIT dos utilitários. O tellmwm foi copiado dos fontes
-locais da versão 1.2, sem alterações, preservando README, COPYING e cabeçalhos.
+licença MIT dos utilitários. O cliente Rust em `rust/tellmwm/` deriva do tellmwm 1.2 de alx@fastestcode.org (https://fastestcode.org/emwm.html). Os fontes de referência conservam README, COPYING e cabeçalhos. Os módulos Rust de bandeja, parser e xmsession derivam dos utilitários MIT. Os módulos de desktop do PCManFM seguem GPL-2.0-or-later, e a geometria do encaixe segue a licença do arquivo WmTile.c.
 A ferramenta de fundos inclui as alterações de persistência desenvolvidas para
 esta integração. Não são incluídos os artefatos de compilação da origem.
 
@@ -36,3 +35,7 @@ o loop bloqueante e os grabs de servidor das animações originais não são usa
 
 O pacote binário gerado inclui licenças, manifesto de versões e uma cópia dos
 fontes e scripts usados em `usr/share/doc/emwm-desktop/sources.tar.xz`.
+Dentro desse arquivo, `emwm-desktop/rust/dependency-sources/sources.json`
+identifica os crates usados pelos executáveis Rust na arquitetura compilada.
+Cada subdiretório contém o código do crate e os avisos de licença distribuídos
+com aquela versão. Os manifestos `Cargo.lock` fixam as versões e os checksums.

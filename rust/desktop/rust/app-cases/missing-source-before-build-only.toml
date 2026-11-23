@@ -1,0 +1,4 @@
+bin.name = "emwm-install"
+args = ["--sources", "--build-only"]
+status.code = 2
+fs.sandbox = true

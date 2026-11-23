@@ -2,7 +2,7 @@
 """Compositor preferences shared by the appearance UI and its tests."""
 import configparser
 import math
-from core import edit_ini, read
+from core import edit_ini, native_unit, read
 
 DEFAULTS = {'backend': 'auto', 'effect': 'zoom', 'duration_ms': 220,
             'fade_ms': 120, 'shadows': True, 'shadow_radius': 16,
@@ -61,6 +61,11 @@ def configuration(config, values):
     encoded = {key: ('true' if value else 'false') if isinstance(value, bool) else str(value)
                for key, value in values.items()}
     return path, edit_ini(read(path), 'compositor', encoded)
+
+
+_native = native_unit('compositor')
+if _native is not None:
+    validate = _native.validate
 
 
 class Controls:

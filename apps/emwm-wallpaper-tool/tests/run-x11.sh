@@ -5,6 +5,9 @@ probe=$1
 tool=$2
 render_probe=$3
 ui_probe=$4
+cargo=$5
+manifest=$6
+cargo_target=$7
 : "${EMWM_BINARY:?Set EMWM_BINARY to the EMWM executable}"
 work=$(mktemp -d)
 xpid=; wmpid=
@@ -16,6 +19,17 @@ cleanup() {
 }
 trap 'cleanup $?' EXIT
 trap 'exit 1' HUP INT TERM
+# Build before entering the private HOME. Cargo emits the test executable's
+# real path, which includes a target- and toolchain-dependent hash.
+"$cargo" test --locked --release --no-run --message-format=json --manifest-path "$manifest" \
+    --target-dir "$cargo_target" > "$work/artifacts.jsonl"
+rust_ui=$(/usr/bin/python3 -c 'import json, sys
+for line in sys.stdin:
+    artifact = json.loads(line)
+    if artifact.get("profile", {}).get("test") and artifact.get("executable"):
+        print(artifact["executable"])
+        break' < "$work/artifacts.jsonl")
+test -x "$rust_ui"
 Xvfb -displayfd 3 -screen 0 800x600x24 -nolisten tcp -noreset 3>"$work/display" >"$work/xvfb.log" 2>&1 &
 xpid=$!
 i=0
@@ -32,6 +46,7 @@ unset SESSION_MANAGER
 "$probe" fixture "$HOME"
 "$tool" --migrate
 timeout 20 dbus-run-session -- "$ui_probe"
+timeout 20 dbus-run-session -- "$rust_ui" ui::tests::monitor_dialog --ignored --exact
 # A new login reconstructs RESOURCE_MANAGER from .Xresources, including cpp.
 xrdb -remove
 xrdb -merge "$HOME/.Xresources"
@@ -84,6 +99,12 @@ for mode in fit zoom stretch center tile monitors; do
     wmpid=$!
     wait_image
     argument=$("$render_probe" fixture "$HOME" "$mode")
+    if [ "$mode" != monitors ]; then
+        # The Rust renderer must reproduce the content-addressed RGBA PNG from C++.
+        cp "$HOME/.config/emwm/backdrops.resources" "$work/expected.resources"
+        "$tool" --refresh-layout
+        cmp "$work/expected.resources" "$HOME/.config/emwm/backdrops.resources"
+    fi
     xrdb -merge -nocpp "$HOME/.config/emwm/backdrops.resources"
     tellmwm backdrop ws0 "$argument"
     wait_render "$mode"

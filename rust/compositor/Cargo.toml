@@ -1,0 +1,11 @@
+[package]
+name = "emwm-compositor"
+version = "0.2.7"
+edition = "2021"
+rust-version = "1.85"
+license = "GPL-3.0-only"
+publish = false
+
+[dependencies]
+libc = "0.2"
+x11 = { version = "2.21", features = ["xlib", "xrender", "xfixes", "xrandr", "glx"] }

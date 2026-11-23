@@ -1,0 +1,52 @@
+{"fn": "validate", "args": [{}]}
+{"fn": "resources", "args": [{}]}
+{"fn": "validate", "args": [[]]}
+{"fn": "resources", "args": [[]]}
+{"fn": "validate", "args": [null]}
+{"fn": "resources", "args": [null]}
+{"fn": "validate", "args": [{"unknown": true}]}
+{"fn": "resources", "args": [{"unknown": true}]}
+{"fn": "validate", "args": [{"mode": "NONE"}]}
+{"fn": "resources", "args": [{"mode": "NONE"}]}
+{"fn": "validate", "args": [{"mode": null}]}
+{"fn": "resources", "args": [{"mode": null}]}
+{"fn": "validate", "args": [{"mode": []}]}
+{"fn": "resources", "args": [{"mode": []}]}
+{"fn": "validate", "args": [{"active_start": "#ABCDáF"}]}
+{"fn": "resources", "args": [{"active_start": "#ABCDáF"}]}
+{"fn": "validate", "args": [{"active_start": "#123456\n"}]}
+{"fn": "resources", "args": [{"active_start": "#123456\n"}]}
+{"fn": "validate", "args": [{"mode": "invalid", "active_start": null}]}
+{"fn": "resources", "args": [{"mode": "invalid", "active_start": null}]}
+{"fn": "validate", "args": [{"mode": "none"}]}
+{"fn": "resources", "args": [{"mode": "none"}]}
+{"fn": "validate", "args": [{"mode": "horizontal"}]}
+{"fn": "resources", "args": [{"mode": "horizontal"}]}
+{"fn": "validate", "args": [{"mode": "vertical"}]}
+{"fn": "resources", "args": [{"mode": "vertical"}]}
+{"fn": "validate", "args": [{"mode": "diagonal"}]}
+{"fn": "resources", "args": [{"mode": "diagonal"}]}
+{"fn": "validate", "args": [{"active_start": "#AbC09F"}]}
+{"fn": "resources", "args": [{"active_start": "#AbC09F"}]}
+{"fn": "validate", "args": [{"active_start": false}]}
+{"fn": "resources", "args": [{"active_start": false}]}
+{"fn": "validate", "args": [{"active_end": "#AbC09F"}]}
+{"fn": "resources", "args": [{"active_end": "#AbC09F"}]}
+{"fn": "validate", "args": [{"active_end": false}]}
+{"fn": "resources", "args": [{"active_end": false}]}
+{"fn": "validate", "args": [{"active_text": "#AbC09F"}]}
+{"fn": "resources", "args": [{"active_text": "#AbC09F"}]}
+{"fn": "validate", "args": [{"active_text": false}]}
+{"fn": "resources", "args": [{"active_text": false}]}
+{"fn": "validate", "args": [{"inactive_start": "#AbC09F"}]}
+{"fn": "resources", "args": [{"inactive_start": "#AbC09F"}]}
+{"fn": "validate", "args": [{"inactive_start": false}]}
+{"fn": "resources", "args": [{"inactive_start": false}]}
+{"fn": "validate", "args": [{"inactive_end": "#AbC09F"}]}
+{"fn": "resources", "args": [{"inactive_end": "#AbC09F"}]}
+{"fn": "validate", "args": [{"inactive_end": false}]}
+{"fn": "resources", "args": [{"inactive_end": false}]}
+{"fn": "validate", "args": [{"inactive_text": "#AbC09F"}]}
+{"fn": "resources", "args": [{"inactive_text": "#AbC09F"}]}
+{"fn": "validate", "args": [{"inactive_text": false}]}
+{"fn": "resources", "args": [{"inactive_text": false}]}
