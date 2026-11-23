@@ -1,0 +1,19 @@
+[package]
+name = "xmsm"
+version = "2.0.0"
+edition = "2021"
+rust-version = "1.85"
+publish = false
+license = "MIT"
+
+[dependencies]
+libc = "0.2"
+x11 = {version="2.21", features=["xt", "xlib", "xss", "xrandr", "xinerama"]}
+
+[features]
+x11-tests = ["x11/xtest"]
+
+[[example]]
+name = "xmsm-probe"
+path = "tests/support/probe.rs"
+required-features = ["x11-tests"]

@@ -39,3 +39,5 @@ Dentro desse arquivo, `emwm-desktop/rust/dependency-sources/sources.json`
 identifica os crates usados pelos executáveis Rust na arquitetura compilada.
 Cada subdiretório contém o código do crate e os avisos de licença distribuídos
 com aquela versão. Os manifestos `Cargo.lock` fixam as versões e os checksums.
+
+Os fontes Rust de `rust/wm`, `rust/toolbox` e `rust/pcmanfm-app` incluem traduções dos fontes identificados em `sources.lock.json`, produzidas com C2Rust 0.22.1 (https://github.com/immunant/c2rust) e ajustadas para o Debian 13 amd64. Os avisos e os arquivos originais acompanham o arquivo de fontes do pacote. `rust/xmsm` deriva dos utilitários Motif distribuídos sob a licença MIT, reproduzida em `rust/emwm-utils/LICENSE`.

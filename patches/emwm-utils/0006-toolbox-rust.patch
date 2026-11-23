@@ -1,0 +1,155 @@
+--- a/src/common.mf
++++ b/src/common.mf
+@@ -1,15 +1,4 @@
+ # Common Makefile part, included by platform specific makefiles
+-
+-CFLAGS += -DPREFIX='"$(PREFIX)"' -DRCDIR='"$(RCDIR)"' $(INCDIRS)
+-PKG_CONFIG ?= pkg-config
+-xdg_cflags = $(shell $(PKG_CONFIG) --cflags garcon-1 gio-unix-2.0)
+-xdg_libs = $(shell $(PKG_CONFIG) --libs garcon-1 gio-unix-2.0)
+-# Only the toolbox links to XDG libraries; the privileged session manager does not.
+-toolbox_libs = -lXm -lXt -lXrender -lXrandr -lX11 $(xdg_libs)
+-xmsm_libs = -lXm -lXt -lXss -lXrandr -lXinerama -lX11 $(SYSLIBS)
+-
+-toolbox_objs = tbmain.o wswitch.o tbxdg.o tbxdgmenu.o
+-common_objs = common.o
+ 
+ app_defaults = XmSm.ad XmToolbox.ad
+ 
+@@ -17,29 +6,18 @@
+ 
+ all: $(executables) $(app_defaults)
+ 
+-tbxdg.o: tbxdg.c tbxdg.h
+-	$(CC) $(CPPFLAGS) $(CFLAGS) $(xdg_cflags) -c tbxdg.c -o $@
++TOOLBOX_CRATE ?= ../../emwm-desktop/rust/toolbox
++TOOLBOX_CONFIG_CRATE ?= ../../emwm-desktop/rust/emwm-utils
++TRAY_CRATE ?= ../../emwm-desktop/rust/tray
++config_target = $(CURDIR)/rust-target
++toolbox_sources = $(foreach crate,$(TOOLBOX_CRATE) $(TOOLBOX_CONFIG_CRATE) $(TRAY_CRATE),$(crate)/Cargo.toml $(wildcard $(crate)/src/*.rs))
+ 
+-tbxdgmenu.o: tbxdgmenu.c tbxdgmenu.h tbxdg.h
+-	$(CC) $(CPPFLAGS) $(CFLAGS) $(xdg_cflags) -c tbxdgmenu.c -o $@
++xmtoolbox: $(TOOLBOX_CRATE)/Cargo.lock $(toolbox_sources)
++	EMWM_RCDIR="$(RCDIR)" cargo build --locked --release --bin xmtoolbox --manifest-path "$(TOOLBOX_CRATE)/Cargo.toml" --target-dir "$(config_target)"
++	cp "$(config_target)/release/xmtoolbox" "$@"
+ 
+-TOOLBOX_CONFIG_CRATE ?= ../../emwm-desktop/rust/emwm-utils
+-config_target = $(CURDIR)/rust-target
+-config_lib = $(config_target)/release/libemwm_toolbox_config.a
+-
+-$(config_lib): $(TOOLBOX_CONFIG_CRATE)/Cargo.toml $(TOOLBOX_CONFIG_CRATE)/Cargo.lock $(wildcard $(TOOLBOX_CONFIG_CRATE)/src/*.rs)
+-	cargo build --locked --release --manifest-path "$(TOOLBOX_CONFIG_CRATE)/Cargo.toml" --target-dir "$(config_target)"
+-
+-TRAY_CRATE ?= ../../emwm-desktop/rust/tray
+-tray_lib = $(config_target)/release/libemwm_tray.a
+-
+-$(tray_lib): $(TRAY_CRATE)/Cargo.toml $(TRAY_CRATE)/Cargo.lock $(wildcard $(TRAY_CRATE)/src/*.rs)
+-	cargo build --locked --release --manifest-path "$(TRAY_CRATE)/Cargo.toml" --target-dir "$(config_target)"
+-
+-xmtoolbox: $(toolbox_objs) $(common_objs) $(config_lib) $(tray_lib)
+-	$(CC) -o $@ $(LDFLAGS) $(LIBDIRS) $(toolbox_objs) $(common_objs) $(config_lib) $(tray_lib) $(toolbox_libs) -ldl -lpthread -lm
+-
+-xmtray: $(tray_lib)
++xmtray: $(TRAY_CRATE)/Cargo.toml $(TRAY_CRATE)/Cargo.lock $(wildcard $(TRAY_CRATE)/src/*.rs)
++	cargo build --locked --release --bin xmtray --manifest-path "$(TRAY_CRATE)/Cargo.toml" --target-dir "$(config_target)"
+ 	cp "$(config_target)/release/xmtray" "$@"
+ 
+ XMSM_CRATE ?= ../../emwm-desktop/rust/xmsm
+@@ -91,9 +69,4 @@
+ 	rmdir $(RCDIR)
+ 
+ clean:
+-	-rm -f "$(config_lib)" "$(tray_lib)"
+-	-rm $(toolbox_objs) $(common_objs) $(executables) $(app_defaults)
+-	-rm .depend
+-
+-.depend:
+-	$(CC) -MM $(INCDIRS) $(xdg_cflags) $(toolbox_objs:.o=.c) $(common_objs:.o=.c) > $@
++	-rm -f $(executables) $(app_defaults) .depend
+--- a/tests/motif.c
++++ b/tests/motif.c
+@@ -2,7 +2,5 @@
+  * Exercise the real menu construction path and gadget callbacks under Xvfb.
+  */
+-#define main toolbox_program_main
+-#include "../src/tbmain.c"
+-#undef main
++#include "toolbox-probe.h"
+ #include <X11/extensions/XTest.h>
+ #include <X11/keysym.h>
+@@ -82,14 +80,9 @@
+     Widget applications, tools, pane;
+     unsigned int before, after;
+-    XtSetLanguageProc(NULL, NULL, NULL);
+-    wshell = XtVaAppInitialize(&app_context, "XmToolbox", xrdb_options,
+-        XtNumber(xrdb_options), &argc, argv, fallback_res,
+-        XmNallowShellResize, True, XmNtitle, "Toolchest XDG integration test", NULL);
+-    XtGetApplicationResources(wshell, &app_res, xrdb_resources, XtNumber(xrdb_resources), NULL, 0);
+-    wmain = XmVaCreateManagedRowColumn(wshell, "main", NULL);
++    toolbox_probe_init(argc, argv, 0);
+     manual = g_build_filename(g_getenv("TB_FIXTURE"), "manual.rc", NULL);
+     g_file_set_contents(manual, "&Manual\n{\n &Run: $TB_FIXTURE/bin/recorder \"manual argument\"\n &Submenu\n {\n  &Nested: /bin/true\n }\n}\n", -1, NULL);
+-    rc_file_path = manual;
+-    assert(construct_menu());
++    toolbox_probe_set_config(manual);
++    assert(toolbox_probe_construct_menu());
+     assert(label_widget(wmenu, "Manual"));
+     applications = label_widget(wmenu, "Applications"); assert(applications);
+@@ -149,13 +142,13 @@
+ 
+     /* This is the same reconstruction used by SIGUSR1 for manual menus. */
+-    for (int i = 0; i < 5; i++) { assert(construct_menu()); drain(); }
++    for (int i = 0; i < 5; i++) { assert(toolbox_probe_construct_menu()); drain(); }
+     assert(label_widget(wmenu, "Manual"));
+-    app_res.applications_menu = False;
+-    assert(construct_menu()); drain();
++    toolbox_probe_applications(False);
++    assert(toolbox_probe_construct_menu()); drain();
+     assert(!label_widget(wmenu, "Applications"));
+     assert(label_widget(wmenu, "Manual"));
+-    app_res.applications_menu = True;
+-    rc_file_path = NULL;
+-    assert(construct_menu()); drain();
++    toolbox_probe_applications(True);
++    toolbox_probe_set_config(NULL);
++    assert(toolbox_probe_construct_menu()); drain();
+     assert(label_widget(wmenu, "Applications"));
+     assert(!label_widget(wmenu, "Manual"));
+--- a/tests/run.sh
++++ b/tests/run.sh
+@@ -2,9 +2,4 @@
+ set -eu
+ cd "$(dirname "$0")/.."
+-if [ "${1:-}" = "--x11" ]; then
+-    config_lib="$PWD/src/rust-target/release/libemwm_toolbox_config.a"
+-    tray_lib="$PWD/src/rust-target/release/libemwm_tray.a"
+-    make -C src -f ../mf/Makefile.Linux "$config_lib" "$tray_lib"
+-fi
+ work=$(mktemp -d)
+ xpid=
+@@ -15,4 +10,9 @@
+ trap cleanup EXIT
+ trap 'exit 1' HUP INT TERM
++crate=${TOOLBOX_CRATE:-"$PWD/../emwm-desktop/rust/toolbox"}
++target="$PWD/src/rust-test-target"
++EMWM_RCDIR="$PWD/src" cargo build --release --locked --features test-probes --lib --manifest-path "$crate/Cargo.toml" --target-dir "$target"
++toolbox_lib="$target/release/libemwm_toolbox.a"
++libs="-lXm -lXt -lXrender -lXrandr -lX11 -ldl -lpthread -lm"
+ python3 tests/fixtures.py "$work"
+ mkdir -p "$work/home"
+@@ -34,5 +34,5 @@
+     -DTB_XDG_FALLBACK="\"$PWD/src/emwm-applications.menu\"" \
+     $(${PKG_CONFIG:-pkg-config} --cflags garcon-1 gio-unix-2.0) \
+-    tests/xdg.c src/tbxdg.c -o "$work/test-xdg" ${LDFLAGS:-} \
++    tests/xdg.c "$toolbox_lib" -o "$work/test-xdg" ${LDFLAGS:-} $libs \
+     $(${PKG_CONFIG:-pkg-config} --libs garcon-1 gio-unix-2.0)
+ "$work/test-xdg"
+@@ -42,6 +42,5 @@
+         -DPREFIX='"/usr"' -DRCDIR='"/etc/X11"' \
+         $(${PKG_CONFIG:-pkg-config} --cflags garcon-1 gio-unix-2.0) \
+-        tests/motif.c src/tbxdg.c src/tbxdgmenu.c src/common.c src/wswitch.c \
+-        -o "$work/test-motif" "$config_lib" "$tray_lib" -ldl -lpthread -lm ${LDFLAGS:-} -lXm -lXt -lXrandr -lXrender -lX11 -lXtst \
++        -I"$crate/tests" tests/motif.c "$toolbox_lib" -o "$work/test-motif" ${LDFLAGS:-} $libs -lXtst \
+         $(${PKG_CONFIG:-pkg-config} --libs garcon-1 gio-unix-2.0)
+     ${XVFB:-Xvfb} -displayfd 3 -screen 0 1024x768x24 -nolisten tcp \

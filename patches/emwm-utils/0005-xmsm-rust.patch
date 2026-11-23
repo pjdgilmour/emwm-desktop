@@ -1,0 +1,34 @@
+--- a/src/common.mf
++++ b/src/common.mf
+@@ -9,7 +9,6 @@
+ xmsm_libs = -lXm -lXt -lXss -lXrandr -lXinerama -lX11 $(SYSLIBS)
+ 
+ toolbox_objs = tbmain.o wswitch.o tbxdg.o tbxdgmenu.o
+-xmsm_objs = smmain.o
+ common_objs = common.o
+ 
+ app_defaults = XmSm.ad XmToolbox.ad
+@@ -43,8 +42,10 @@
+ xmtray: $(tray_lib)
+ 	cp "$(config_target)/release/xmtray" "$@"
+ 
+-xmsm: $(xmsm_objs) $(common_objs)
+-	$(CC) -o $@ $(LDFLAGS) $(LIBDIRS) $(xmsm_objs) $(common_objs) $(xmsm_libs)
++XMSM_CRATE ?= ../../emwm-desktop/rust/xmsm
++xmsm: $(XMSM_CRATE)/Cargo.toml $(XMSM_CRATE)/Cargo.lock $(wildcard $(XMSM_CRATE)/src/*.rs)
++	cargo build --locked --release --manifest-path "$(XMSM_CRATE)/Cargo.toml" --target-dir "$(CURDIR)/rust-target"
++	cp "$(CURDIR)/rust-target/release/xmsm" "$@"
+ 
+ xmsession: xmsession.src
+ 	sed s%PREFIX%$(PREFIX)%g xmsession.src > $@
+@@ -91,8 +92,8 @@
+ 
+ clean:
+ 	-rm -f "$(config_lib)" "$(tray_lib)"
+-	-rm $(toolbox_objs) $(xmsm_objs) $(common_objs) $(executables) $(app_defaults)
++	-rm $(toolbox_objs) $(common_objs) $(executables) $(app_defaults)
+ 	-rm .depend
+ 
+ .depend:
+-	$(CC) -MM $(INCDIRS) $(xdg_cflags) $(toolbox_objs:.o=.c) $(xmsm_objs:.o=.c) $(common_objs:.o=.c) > $@
++	$(CC) -MM $(INCDIRS) $(xdg_cflags) $(toolbox_objs:.o=.c) $(common_objs:.o=.c) > $@

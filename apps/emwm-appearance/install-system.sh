@@ -14,6 +14,6 @@ cargo build --locked --release --manifest-path "$source_dir/../../rust/appearanc
 dest=/usr/lib/emwm-desktop/appearance
 install -o root -g root -d -m 755 "$dest"
 install -o root -g root -m 755 "$work/target/release/emwm-appearance" "$work/target/release/emwm-appearance-login" "$dest/"
-install -o root -g root -m 755 "$source_dir/emwm-appearance" /usr/bin/emwm-appearance
+ln -sfn ../lib/emwm-desktop/appearance/emwm-appearance /usr/bin/emwm-appearance
 install -o root -g root -m 644 "$source_dir/emwm-appearance.desktop" /usr/share/applications/emwm-appearance.desktop
 printf '%s\n' 'Instalado. Abra Aparência do EMWM no menu de aplicativos ou execute emwm-appearance.'

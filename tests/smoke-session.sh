@@ -25,7 +25,7 @@ import sys
 work=Path(sys.argv[1]); root=work/'root'
 prefix=root/'usr/lib/emwm-desktop'; data=root/'usr/share/emwm-desktop'
 # Relocate only this temporary test copy; package paths stay fixed at install time.
-for path in [root/'usr/bin/emwm-desktop-session', data/'defaults.Xresources',
+for path in [data/'defaults.Xresources',
              data/'app-defaults/XmSm', data/'app-defaults/XmToolbox']:
     text=path.read_text().replace('/usr/lib/emwm-desktop',str(prefix)).replace('/usr/share/emwm-desktop',str(data))
     path.write_text(text)
@@ -43,7 +43,8 @@ DISPLAY=":$(cat "$work/display")"
 export DISPLAY HOME="$work/home" XENVIRONMENT="$work/empty" XDG_CONFIG_HOME="$work/home/.config" XDG_STATE_HOME="$work/home/.local/state"
 unset SESSION_MANAGER
 : >"$XENVIRONMENT"
-setsid sh "$work/root/usr/bin/emwm-desktop-session" >"$work/launcher.log" 2>&1 &
+export EMWM_DESKTOP_PREFIX="$work/root/usr/lib/emwm-desktop" EMWM_DESKTOP_DATA="$work/root/usr/share/emwm-desktop"
+setsid "$work/root/usr/bin/emwm-desktop-session" >"$work/launcher.log" 2>&1 &
 session_pid=$!
 mapped_class() {
     # X window IDs are single whitespace-free hexadecimal words.

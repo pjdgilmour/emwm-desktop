@@ -319,7 +319,10 @@ impl Build {
             &[
                 "rust/desktop/Cargo.toml",
                 "rust/tellmwm/Cargo.toml",
-                "rust/pcmanfm/Cargo.toml",
+                "rust/pcmanfm-app/Cargo.toml",
+                "rust/wm/Cargo.toml",
+                "rust/xmsm/Cargo.toml",
+                "rust/toolbox/Cargo.toml",
                 "rust/emwm/Cargo.toml",
                 "rust/emwm-utils/Cargo.toml",
                 "rust/tray/Cargo.toml",
@@ -350,7 +353,7 @@ impl Build {
             run(&mut make)?;
         }
         let port_target = self.work.join("upstream-build");
-        for name in ["pcmanfm", "tellmwm"] {
+        for name in ["pcmanfm-app", "tellmwm"] {
             let manifest = self.root.join("rust").join(name).join("Cargo.toml");
             run(&mut cmd!(
                 "cargo",
@@ -363,13 +366,6 @@ impl Build {
                 &port_target
             ))?;
         }
-        let fm = self.work.join("pcmanfm");
-        run(cmd!("sh", "autogen.sh").current_dir(&fm))?;
-        run(cmd!("./configure", "--prefix=/usr", "--with-gtk=3").current_dir(&fm))?;
-        run(cmd!("make", "-C", "src", &self.jobs).current_dir(&fm).env(
-            "PCMANFM_LAYOUT_LIB",
-            port_target.join("release/libemwm_pcmanfm.a"),
-        ))?;
         for (name, dir) in [
             ("emwm-wallpaper-tool", "wallpaper-build"),
             ("emwm-compositor", "compositor-build"),
@@ -472,7 +468,7 @@ impl Build {
         let tests = self.root.join("tests");
         let wm = w.join("emwm/src/emwm");
         let compositor = w.join("compositor-build/emwm-compositor");
-        let fm = w.join("pcmanfm/src/pcmanfm");
+        let fm = w.join("upstream-build/release/pcmanfm");
         let tell = w.join("upstream-build/release/tellmwm");
         let utils = w.join("emwm-utils");
         let wallpaper = w.join("wallpaper-build");
@@ -496,6 +492,12 @@ impl Build {
         run(cmd!("make", "test-argb")
             .current_dir(w.join("emwm"))
             .env("EMWM_COMPOSITOR", &compositor))?;
+        run(&mut cmd!(
+            "python3",
+            self.root.join("rust/pcmanfm-app/tests/files.py"),
+            &fm,
+            &fm
+        ))?;
         for name in ["native-desktop.py", "desktop-drag.py"] {
             run(cmd!(
                 "python3",
@@ -564,6 +566,8 @@ impl Build {
     }
     fn stage_files(&self) -> Result<()> {
         let bin = self.stage.join(PREFIX).join("bin");
+        let public_bin = self.stage.join("usr/bin");
+        fs::create_dir_all(&public_bin)?;
         let data = self.stage.join(DATA);
         for (src, name) in [
             ("emwm/src/emwm", "emwm"),
@@ -572,7 +576,7 @@ impl Build {
             ("emwm-utils/src/xmsm", "xmsm"),
             ("desktop-build/release/xmsession", "xmsession"),
             ("upstream-build/release/tellmwm", "tellmwm"),
-            ("pcmanfm/src/pcmanfm", "pcmanfm"),
+            ("upstream-build/release/pcmanfm", "pcmanfm"),
             ("wallpaper-build/emwm-wallpaper-tool", "emwm-wallpaper-tool"),
             ("compositor-build/emwm-compositor", "emwm-compositor"),
             ("desktop-build/release/emwm-session", "emwm-session"),
@@ -613,7 +617,6 @@ impl Build {
             let f = item?;
             copy(&f.path(), &data.join(f.file_name()), 0o644)?;
         }
-        let appearance = self.root.join("apps/emwm-appearance");
         let appearance_dir = self.stage.join(PREFIX).join("appearance");
         for name in ["emwm-appearance", "emwm-appearance-login"] {
             copy(
@@ -622,22 +625,16 @@ impl Build {
                 0o755,
             )?;
         }
-        for dest in [
-            self.stage.join("usr/bin/emwm-appearance"),
-            bin.join("emwm-appearance"),
-        ] {
-            copy(&appearance.join("emwm-appearance"), &dest, 0o755)?;
-        }
+        symlink("../appearance/emwm-appearance", bin.join("emwm-appearance"))?;
+        symlink(
+            "../lib/emwm-desktop/appearance/emwm-appearance",
+            public_bin.join("emwm-appearance"),
+        )?;
         for (src, dest, mode) in [
             (
                 "apps/emwm-appearance/emwm-appearance.desktop",
                 "usr/share/applications/emwm-appearance.desktop",
                 0o644,
-            ),
-            (
-                "session/emwm-desktop-session",
-                "usr/bin/emwm-desktop-session",
-                0o755,
             ),
             (
                 "packaging/emwm-desktop.desktop",
@@ -675,6 +672,10 @@ impl Build {
                 0o644,
             )?;
         }
+        symlink(
+            "../lib/emwm-desktop/bin/emwm-session",
+            public_bin.join("emwm-desktop-session"),
+        )?;
         let doc = self.stage.join("usr/share/doc/emwm-desktop");
         for (src, dest) in [
             ("README.md", "README.md"),

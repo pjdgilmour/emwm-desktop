@@ -261,9 +261,7 @@ o pacote inclui tanto os patches quanto os fontes já modificados.
 Publique os commits nos forks **antes** de publicar uma versão do instalador que
 os referencia. O instalador não segue automaticamente a ponta de uma branch.
 
-Os binários são recompilados para a arquitetura local. A primeira versão foi
-compilada e testada em Debian 13 amd64; uma instalação completa em uma máquina
-nova deve ser validada antes de declarar suporte a outros ambientes/arquiteturas.
+A versão 0.4.0 compila os executáveis da sessão em Rust para **Debian 13 amd64**. A ligação com X11, Xt/Motif, GTK, Garcon e libfm usa as bibliotecas do sistema. O EMWM, o Toolchest e o PCManFM incluem módulos traduzidos que conservam operações `unsafe` do código legado. O pacote preserva as fontes originais para comparação. A lista dos módulos e testes está em [rust/MAP.md](rust/MAP.md).
 
 ## Remover
 
@@ -277,7 +275,8 @@ ambientes gráficos nem troca preferências globais.
 
 ## Estrutura e testes
 
-- `rust/desktop/` contém o instalador Debian, os pontos de entrada de sessão e o controlador dos ícones do PCManFM. `install.sh` e a entrada em `session/` iniciam esses executáveis.
+- `rust/desktop/` contém o instalador Debian, os pontos de entrada da sessão e o controlador dos ícones do PCManFM. A entrada do gerenciador de login inicia diretamente o supervisor Rust.
+- `rust/wm/` contém o EMWM. `rust/toolbox/`, `rust/xmsm/`, `rust/tray/` e `rust/emwm-utils/` implementam os utilitários Motif. O gerenciador de arquivos e a área de trabalho ficam em `rust/pcmanfm-app/` e `rust/pcmanfm/`.
 - `rust/appearance/` contém a ferramenta de aparência e o auxiliar de login.
 - `rust/compositor/` contém os renderizadores OpenGL/XRender e o loop de eventos do compositor.
 - `rust/wallpaper/` contém a interface GTK e a composição dos fundos por monitor.

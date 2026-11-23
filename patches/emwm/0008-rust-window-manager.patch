@@ -1,0 +1,44 @@
+--- a/src/common.mf
++++ b/src/common.mf
+@@ -6,33 +6,19 @@
+ 
+ CFLAGS += $(DEFINES)
+ 
+-mwm_objs = WmArgb.o WmTile.o \
+-	WmCDInfo.o WmCDecor.o WmCEvent.o WmCPlace.o WmColormap.o WmError.o \
+-	WmEvent.o WmFeedback.o WmFunction.o	WmGraphics.o WmIDecor.o WmIPlace.o \
+-	WmIconBox.o WmKeyFocus.o WmMain.o WmManage.o WmProperty.o WmResCvt.o\
+-	WmResParse.o WmResource.o WmSignal.o WmWinConf.o WmWinInfo.o WmWinList.o \
+-	WmWinState.o WmXSMP.o WmImage.o WmInitWs.o WmMenu.o	WmProtocol.o \
+-	WmBackdrop.o WmPresence.o WmWrkspace.o WmXinerama.o WmEwmh.o WmRequest.o
++# The distribution builds the complete window manager from Rust sources.
++WM_RUST_CRATE ?= ../../emwm-desktop/rust/wm
++WM_RUST_TARGET ?= $(CURDIR)/rust-target
++wm_rust_src = $(wildcard $(WM_RUST_CRATE)/src/*.rs $(WM_RUST_CRATE)/../emwm/src/*.rs)
+ 
+-EMWM_MONITOR_CRATE ?= ../../emwm-desktop/rust/emwm
+-monitor_target = $(CURDIR)/rust-target
+-monitor_lib = $(monitor_target)/release/libemwm_monitor.a
+-
+-emwm: $(mwm_objs) $(monitor_lib)
+-	$(CC) $(LDFLAGS) $(LIBDIRS) -o $@ $(mwm_objs) $(monitor_lib) $(SYSLIBS) -ldl -lpthread
+-
+-$(monitor_lib): $(EMWM_MONITOR_CRATE)/Cargo.toml $(EMWM_MONITOR_CRATE)/Cargo.lock $(wildcard $(EMWM_MONITOR_CRATE)/src/*.rs)
+-	cargo build --locked --release --manifest-path "$(EMWM_MONITOR_CRATE)/Cargo.toml" --target-dir "$(monitor_target)"
+-
+-.depend:
+-	$(CC) -MM $(INCDIRS) $(mwm_objs:.o=.c) > $@
++emwm: $(wm_rust_src) $(WM_RUST_CRATE)/build.rs $(WM_RUST_CRATE)/Cargo.toml $(WM_RUST_CRATE)/Cargo.lock $(WM_RUST_CRATE)/../emwm/Cargo.toml
++	EMWM_RCDIR="$(RCDIR)" cargo build --locked --release --manifest-path "$(WM_RUST_CRATE)/Cargo.toml" --target-dir "$(WM_RUST_TARGET)"
++	cp "$(WM_RUST_TARGET)/release/emwm" "$@"
+ 
+ .PHONY: clean install common_install
+ 
+ clean:
+-	-rm -f $(mwm_objs) $(wsm_objs) emwm
+-	-rm -f "$(monitor_lib)"
+-	-rm .depend
++	-rm -f emwm
+ 
+ common_install:
+ 	install -m 755 emwm $(PREFIX)/bin/emwm

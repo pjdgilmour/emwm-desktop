@@ -1,0 +1,12 @@
+[package]
+name = "emwm"
+version = "1.0.0"
+edition = "2021"
+rust-version = "1.85"
+license = "LGPL-2.1-or-later"
+publish = false
+
+[dependencies]
+libc = "0.2"
+c2rust-bitfields = "=0.22.1"
+emwm-monitor = { path = "../emwm" }

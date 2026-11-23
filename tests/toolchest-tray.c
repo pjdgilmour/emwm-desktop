@@ -1,8 +1,6 @@
 /* SPDX-License-Identifier: MIT
  * Exercise the actual Toolchest footer with foreign XEmbed clients. */
-#define main toolbox_program_main
-#include "tbmain.c"
-#undef main
+#include "toolbox-probe.h"
 #include <X11/extensions/XTest.h>
 #include <assert.h>
 
@@ -75,24 +73,14 @@ int main(int argc, char **argv) {
     Window icons[9], host, ancestor, child;
     XWindowAttributes attrs;
     int x, y, clock_x, clock_y;
-    XtSetLanguageProc(NULL, NULL, NULL);
-    wshell = XtVaAppInitialize(&app_context, "XmToolbox", xrdb_options,
-        XtNumber(xrdb_options), &argc, argv, fallback_res,
-        XmNallowShellResize, True, NULL);
-    XtGetApplicationResources(wshell, &app_res, xrdb_resources,
-        XtNumber(xrdb_resources), NULL, 0);
-    wmain = XmVaCreateManagedRowColumn(wshell, "main",
-        XmNorientation, app_res.horizontal ? XmHORIZONTAL : XmVERTICAL, NULL);
-    create_utility_widgets(wmain);
-    XtRealizeWidget(wshell);
-    if (app_res.system_tray) TrayStart();
+    toolbox_probe_init(argc, argv, 1);
     client = XOpenDisplay(NULL); assert(client);
     root = DefaultRootWindow(client);
     info = XInternAtom(client, "_XEMBED_INFO", False);
     selection = XInternAtom(client, "_NET_SYSTEM_TRAY_S0", False);
     owner = XGetSelectionOwner(client, selection);
     drain();
-    if (!app_res.system_tray) {
+    if (!toolbox_probe_tray_enabled()) {
         assert(owner == None);
         puts("PASS: disabled Toolchest tray leaves selection unowned");
         return 0;
@@ -116,7 +104,7 @@ int main(int argc, char **argv) {
     while (ancestor != root && ancestor != XtWindow(wshell)) ancestor = parent(ancestor);
     assert(ancestor == XtWindow(wshell));
     XTranslateCoordinates(client, host, root, 0, 0, &x, &y, &child);
-    if (app_res.show_date_time) {
+    if (toolbox_probe_clock_enabled()) {
         XTranslateCoordinates(client, XtWindow(wdtframe), root, 0, 0, &clock_x, &clock_y, &child);
         assert(y >= clock_y + height(wdtframe));
     }

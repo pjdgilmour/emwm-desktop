@@ -1,0 +1,23 @@
+[package]
+name = "emwm-pcmanfm-app"
+version = "1.4.0"
+edition = "2021"
+license = "GPL-2.0-or-later"
+rust-version = "1.85"
+publish = false
+
+[lib]
+crate-type = ["rlib", "staticlib"]
+
+[dependencies]
+glib = { version = "0.18", features = ["v2_66"] }
+libc = "0.2"
+c2rust-bitfields = "=0.22.1"
+emwm-pcmanfm = { path = "../pcmanfm" }
+
+[[bin]]
+name = "pcmanfm"
+path = "src/main.rs"
+
+[build-dependencies]
+pkg-config = "0.3"

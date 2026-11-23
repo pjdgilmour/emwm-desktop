@@ -36,8 +36,14 @@ extern "C" {
         event: *mut c_int,
         error: *mut c_int,
     ) -> c_int;
+}
+#[link(name = "Xinerama")]
+extern "C" {
     fn XineramaIsActive(display: *mut c_void) -> c_int;
     fn XineramaQueryScreens(display: *mut c_void, count: *mut c_int) -> *mut Screen;
+}
+#[link(name = "X11")]
+extern "C" {
     fn XFree(pointer: *mut c_void) -> c_int;
     fn XQueryPointer(
         display: *mut c_void,

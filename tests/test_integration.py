@@ -190,18 +190,23 @@ class PackageTests(unittest.TestCase):
         return self.archive.extractfile(self.files[path]).read()
 
     def test_private_layout_and_permissions(self):
-        required=['usr/bin/emwm-appearance', 'usr/lib/emwm-desktop/bin/emwm-session',
+        required=['usr/lib/emwm-desktop/bin/emwm-session',
                   'usr/lib/emwm-desktop/appearance/emwm-appearance',
                   'usr/lib/emwm-desktop/appearance/emwm-appearance-login',
-                  'usr/bin/emwm-desktop-session','usr/share/xsessions/emwm-desktop.desktop',
+                  'usr/share/xsessions/emwm-desktop.desktop',
                   'usr/share/emwm-desktop/app-defaults/Emwm','usr/share/emwm-desktop/app-defaults/XmSm',
                   'usr/share/emwm-desktop/emwm-applications.menu']
         for name in ['emwm','xmsm','xmtoolbox','xmtray','tellmwm','emwm-wallpaper-tool',
-                     'emwm-compositor','emwm-desktop-icons','emwm-appearance','pcmanfm']:
+                     'emwm-compositor','emwm-desktop-icons','pcmanfm']:
             required.append('usr/lib/emwm-desktop/bin/'+name)
+        links = {p.name.lstrip('./'): p.linkname for p in self.archive.getmembers() if p.issym()}
+        self.assertEqual(links['usr/bin/emwm-desktop-session'], '../lib/emwm-desktop/bin/emwm-session')
+        self.assertEqual(links['usr/bin/emwm-appearance'], '../lib/emwm-desktop/appearance/emwm-appearance')
+        self.assertEqual(links['usr/lib/emwm-desktop/bin/emwm-appearance'], '../appearance/emwm-appearance')
         for path in required:
             self.assertIn(path,self.files)
-        for native in ('bin/emwm-session', 'bin/emwm-desktop-icons', 'bin/emwm-compositor',
+        for native in ('bin/emwm', 'bin/xmtoolbox', 'bin/xmsm', 'bin/pcmanfm',
+                       'bin/emwm-session', 'bin/emwm-desktop-icons', 'bin/emwm-compositor',
                        'bin/emwm-wallpaper-tool', 'bin/tellmwm', 'bin/xmtray', 'bin/xmsession',
                        'appearance/emwm-appearance',
                        'appearance/emwm-appearance-login'):
@@ -220,7 +225,7 @@ class PackageTests(unittest.TestCase):
                 self.assertEqual(member.mode & 0o7777, 0o755, member.name)
 
     def test_generic_configuration_and_bundled_source(self):
-        for path in ['usr/bin/emwm-desktop-session','usr/share/emwm-desktop/defaults.Xresources',
+        for path in ['usr/share/emwm-desktop/defaults.Xresources',
                      'usr/share/emwm-desktop/session.conf','usr/share/emwm-desktop/toolboxrc']:
             content=self.read(path)
             for private in [b'/home/paulo',b'/mnt/2tera',b'DP-5',b'Irixium',b'anydesk']:
@@ -235,6 +240,10 @@ class PackageTests(unittest.TestCase):
                          'emwm-utils/src/tray.c','emwm-utils/src/tray.h',
                          'emwm-desktop/patches/emwm-utils/0001-toolchest-tray.patch',
                          'emwm-desktop/scripts/install.py',
+                         'emwm-desktop/rust/wm/src/WmMain.rs',
+                         'emwm-desktop/rust/toolbox/src/main.rs',
+                         'emwm-desktop/rust/xmsm/src/main.rs',
+                         'emwm-desktop/rust/pcmanfm-app/src/main.rs',
                          'emwm-desktop/rust/gradient-rs/src/port.rs',
                          'emwm-desktop/rust/gradient-rs/Cargo.lock',
                          'emwm-desktop/rust/dependency-sources/sources.json',

@@ -11,19 +11,13 @@ cleanup() {
 }
 trap cleanup EXIT
 trap 'exit 1' HUP INT TERM
-tray_lib="$utils/src/rust-target/release/libemwm_tray.a"
-config_lib="$utils/src/rust-target/release/libemwm_toolbox_config.a"
-make -C "$utils/src" -f ../mf/Makefile.Linux TRAY_CRATE="$project/rust/tray" \
-    TOOLBOX_CONFIG_CRATE="$project/rust/emwm-utils" "$tray_lib" "$config_lib"
-# Compiler and pkg-config flags intentionally expand into separate arguments.
-# shellcheck disable=SC2046,SC2086
-${CC:-cc} ${CFLAGS:--O2 -Wall} -I"$utils/src" \
-    -DRCDIR='"/etc/X11"' \
-    $(pkg-config --cflags garcon-1 gio-unix-2.0) \
-    "$project/tests/toolchest-tray.c" \
-    "$utils/src/common.c" "$utils/src/wswitch.c" \
-    "$utils/src/tbxdg.c" "$utils/src/tbxdgmenu.c" \
-    -o "$work/test-tray" "$config_lib" "$tray_lib" -ldl -lpthread -lm -lXm -lXt -lXrender -lXrandr -lX11 -lXtst \
+crate="$project/rust/toolbox"
+target="$utils/src/rust-test-target"
+EMWM_RCDIR="$utils/src" cargo build --release --locked --features test-probes --lib --manifest-path "$crate/Cargo.toml" --target-dir "$target"
+# shellcheck disable=SC2086,SC2046
+${CC:-cc} ${CFLAGS:--O2 -Wall} -I"$crate/tests" "$project/tests/toolchest-tray.c" \
+    "$target/release/libemwm_toolbox.a" -o "$work/test-tray" \
+    -lXm -lXt -lXrender -lXrandr -lX11 -lXtst -ldl -lpthread -lm \
     $(pkg-config --libs garcon-1 gio-unix-2.0)
 Xvfb -displayfd 3 -screen 0 1024x768x24 -nolisten tcp -noreset \
     3>"$work/display" >"$work/x.log" 2>&1 &
