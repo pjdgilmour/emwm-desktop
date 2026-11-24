@@ -116,11 +116,6 @@ impl Logout {
                 form,
                 &mut args![c"initialFocus"=>ok,c"defaultButton"=>ok,c"cancelButton"=>cancel],
             );
-            xt::XtRealizeWidget(shell);
-            XmAddProtocolCallback(shell, app.wm_messages, app.wm_offset, offset, app.data());
-            let protocols = XInternAtom(d, c"WM_PROTOCOLS".as_ptr(), False);
-            let delete = XInternAtom(d, c"WM_DELETE_WINDOW".as_ptr(), False);
-            XmAddProtocolCallback(shell, protocols, delete, activate, app.data());
             Self {
                 shades,
                 shell,
@@ -152,7 +147,7 @@ impl Logout {
     }
     pub fn show(&self, app: &App) {
         unsafe {
-            if self.visible.replace(true) {
+            if self.visible.get() {
                 XRaiseWindow(app.dpy, xt::XtWindow(self.shell));
                 return;
             }
@@ -191,7 +186,24 @@ impl Logout {
                 xt::XtMapWidget(shade);
                 XRaiseWindow(d, xt::XtWindow(shade));
             }
+            // Registering Motif protocols can realize the shell. Let the
+            // populated form establish its size first, so EMWM receives the
+            // correct initial WM_NORMAL_HINTS when it frames the dialog.
+            let first_show = xt::XtIsRealized(self.shell) == 0;
             xt::XtManageChild(self.form);
+            if first_show {
+                XmAddProtocolCallback(
+                    self.shell,
+                    app.wm_messages,
+                    app.wm_offset,
+                    offset,
+                    app.data(),
+                );
+                let protocols = XInternAtom(app.dpy, c"WM_PROTOCOLS".as_ptr(), False);
+                let delete = XInternAtom(app.dpy, c"WM_DELETE_WINDOW".as_ptr(), False);
+                XmAddProtocolCallback(self.shell, protocols, delete, activate, app.data());
+            }
+            self.visible.set(true);
             xt::XtMapWidget(self.shell);
             app.center(self.shell, 0, 0);
             XRaiseWindow(app.dpy, xt::XtWindow(self.shell));

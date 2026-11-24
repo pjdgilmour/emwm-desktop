@@ -18,6 +18,7 @@ cleanup() {
 trap 'cleanup $?' EXIT
 trap 'exit 1' INT TERM HUP
 dpkg-deb -x "$package" "$work/root"
+logout_probe=$(sh "$project/rust/xmsm/tests/support/probe.sh")
 mkdir -p "$work/home/.config/emwm-desktop"
 python3 - "$work" <<'PY'
 from pathlib import Path
@@ -71,3 +72,28 @@ toolbox_pid=$(pgrep -P "$xmsm_pid" -x xmtoolbox)
 "$work/probe-tray" "$toolbox_pid" "$work/root/usr/lib/emwm-desktop/bin/xmtoolbox"
 if [ -n "${EMWM_DESKTOP_CAPTURE:-}" ]; then import -display "$DISPLAY" -window root "$EMWM_DESKTOP_CAPTURE"; fi
 printf '%s\n' 'PASS: extracted package starts xmsm, EMWM and Toolchest with integrated tray on an isolated X server'
+
+# Send the Toolchest's logout request while the real EMWM manages the dialog.
+# A bare X server accepts size changes that EMWM restricts using WM_NORMAL_HINTS.
+wait_for() {
+    n=0
+    until "$@"; do
+        n=$((n+1))
+        [ "$n" -lt 60 ] || return 1
+        sleep .1
+    done
+}
+dialog_closed() { ! "$logout_probe" dialog; }
+session_ended() { ! kill -0 "$session_pid" 2>/dev/null; }
+"$logout_probe" LOGOUT
+wait_for "$logout_probe" dialog-size
+"$logout_probe" cancel
+wait_for dialog_closed
+kill -0 "$xmsm_pid"
+"$logout_probe" LOGOUT
+wait_for "$logout_probe" dialog-size
+"$logout_probe" ok
+wait_for session_ended
+wait "$session_pid"
+session_pid=
+printf '%s\n' 'PASS: logout dialog has usable dimensions, Cancel keeps the session running, and OK exits'

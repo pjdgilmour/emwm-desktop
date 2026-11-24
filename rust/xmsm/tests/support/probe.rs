@@ -97,7 +97,7 @@ unsafe fn send_request(display: *mut Display, root: Window, request: &str) -> bo
 unsafe fn probe(display: *mut Display, op: &str) -> bool {
     let root = XDefaultRootWindow(display);
     match op {
-        "dialog" | "cancel" | "ok" => {
+        "dialog" | "dialog-size" | "cancel" | "ok" => {
             let Some(w) = dialog(display, root) else {
                 return false;
             };
@@ -107,6 +107,10 @@ unsafe fn probe(display: *mut Display, op: &str) -> bool {
             let (mut attrs, mut x, mut y, mut child) = (zeroed(), 0, 0, 0);
             if XGetWindowAttributes(display, w, &mut attrs) == 0 {
                 return false;
+            }
+            if op == "dialog-size" {
+                println!("{}x{}", attrs.width, attrs.height);
+                return attrs.width >= 120 && attrs.height >= 48;
             }
             let fraction = if op == "ok" { 3 } else { 7 };
             if XTranslateCoordinates(
