@@ -50,6 +50,15 @@ pub struct Atoms {
     pub state: Atom,
     pub fullscreen: Atom,
     pub current_desktop: Atom,
+    pub wm_info: Atom,
+    pub workspace_list: Atom,
+    pub presence: Atom,
+    pub all_workspaces: Atom,
+    pub desktop_names: Atom,
+    pub active_window: Atom,
+    pub wm_name: Atom,
+    pub wm_state: Atom,
+    pub skip_taskbar: Atom,
     pub animation: Atom,
     pub last_animation: Atom,
     pub backend: Atom,
@@ -66,6 +75,15 @@ impl Atoms {
             state: atom(c"_NET_WM_STATE"),
             fullscreen: atom(c"_NET_WM_STATE_FULLSCREEN"),
             current_desktop: atom(c"_NET_CURRENT_DESKTOP"),
+            wm_info: atom(c"_MOTIF_WM_INFO"),
+            workspace_list: atom(c"_MWM_WORKSPACE_LIST"),
+            presence: atom(c"_MWM_WORKSPACE_PRESENCE"),
+            all_workspaces: atom(c"all"),
+            desktop_names: atom(c"_NET_DESKTOP_NAMES"),
+            active_window: atom(c"_NET_ACTIVE_WINDOW"),
+            wm_name: atom(c"_NET_WM_NAME"),
+            wm_state: atom(c"WM_STATE"),
+            skip_taskbar: atom(c"_NET_WM_STATE_SKIP_TASKBAR"),
             animation: atom(c"_EMWM_ANIMATION"),
             last_animation: atom(c"_EMWM_LAST_ANIMATION"),
             backend: atom(c"_EMWM_COMPOSITOR_BACKEND"),
@@ -77,6 +95,7 @@ pub struct Screen {
     pub screen: i32,
     pub root: Window,
     pub owner: Window,
+    pub input: Window,
     pub overlay: Window,
     pub selection: Atom,
     pub damage_event: i32,
@@ -103,6 +122,7 @@ impl Screen {
                 screen,
                 root: XRootWindow(d, screen),
                 owner: 0,
+                input: 0,
                 overlay: 0,
                 selection: 0,
                 damage_event: 0,
@@ -159,6 +179,30 @@ impl Screen {
                     "Cannot redirect X11 windows (another compositor may be active)".into(),
                 );
             }
+            // The overview receives input through an ordinary window. Screen lockers
+            // and other modal X11 clients can still acquire the keyboard and pointer.
+            let mut attrs: XSetWindowAttributes = mem::zeroed();
+            attrs.override_redirect = True;
+            attrs.event_mask = KeyPressMask
+                | KeyReleaseMask
+                | ButtonPressMask
+                | ButtonReleaseMask
+                | PointerMotionMask
+                | FocusChangeMask;
+            s.input = XCreateWindow(
+                d,
+                s.root,
+                0,
+                0,
+                1,
+                1,
+                0,
+                0,
+                InputOnly as _,
+                ptr::null_mut(),
+                CWOverrideRedirect | CWEventMask,
+                &mut attrs,
+            );
             s.redirected = true;
             s.overlay = XCompositeGetOverlayWindow(d, s.root);
             let empty = XFixesCreateRegion(d, ptr::null_mut(), 0);
@@ -207,6 +251,39 @@ impl Screen {
         };
         XFree(data.cast());
         result
+    }
+    pub unsafe fn strings(&self, window: Window, property: Atom) -> Vec<String> {
+        let mut value: XTextProperty = mem::zeroed();
+        if XGetTextProperty(self.d, window, &mut value, property) == 0 || value.value.is_null() {
+            return Vec::new();
+        }
+        let strings = if value.format == 8 {
+            std::slice::from_raw_parts(value.value, value.nitems as usize)
+                .split(|&b| b == 0)
+                .map(|s| String::from_utf8_lossy(s).into_owned())
+                .collect()
+        } else {
+            Vec::new()
+        };
+        XFree(value.value.cast());
+        strings
+    }
+    pub unsafe fn request(&self, window: Window, message: Atom, value: usize, time: Time) {
+        let mut event: XEvent = mem::zeroed();
+        let msg = &mut event.client_message;
+        msg.type_ = ClientMessage;
+        msg.window = window;
+        msg.message_type = message;
+        msg.format = 32;
+        msg.data.set_long(0, value as _);
+        msg.data.set_long(1, time as _);
+        XSendEvent(
+            self.d,
+            self.root,
+            False,
+            SubstructureRedirectMask | SubstructureNotifyMask,
+            &mut event,
+        );
     }
     pub unsafe fn attrs(&self, w: Window) -> Option<XWindowAttributes> {
         let mut a = mem::zeroed();

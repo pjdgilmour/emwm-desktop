@@ -14,6 +14,8 @@ pub const BUILD_DEPS: &[&str] = &[
     "dpkg-dev",
     "libmotif-dev",
     "libx11-dev",
+    "libxi-dev",
+    "libxft-dev",
     "libxt-dev",
     "libxext-dev",
     "libxrender-dev",

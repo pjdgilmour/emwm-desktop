@@ -222,6 +222,7 @@ extern "C" {
     fn StartClientMove(pcd: *mut ClientData, pev: *mut XEvent) -> Boolean;
     fn StartClientResize(pcd: *mut ClientData, pev: *mut XEvent);
     fn StartResizeConfig(pcd: *mut ClientData, pev: *mut XEvent) -> Boolean;
+    fn F_Raise(args: String_0, pCD: *mut ClientData, event: *mut XEvent) -> Boolean;
     fn F_Focus_Key(args: String_0, pCD: *mut ClientData, event: *mut XEvent) -> Boolean;
     fn F_Maximize(args: String_0, pCD: *mut ClientData, event: *mut XEvent) -> Boolean;
     fn F_Minimize(args: String_0, pCD: *mut ClientData, event: *mut XEvent) -> Boolean;
@@ -772,6 +773,13 @@ pub unsafe extern "C" fn HandleEwmhClientMessage(
             UpdateEwmhClientState(pCD);
         }
     } else if (*evt).message_type == ewmh_atoms[_NET_ACTIVE_WINDOW as ::core::ffi::c_int as usize] {
+        // A pager selects a particular window, including minimized clients.
+        if (*evt).data.l[0] == 2 {
+            if (*pCD).clientState == MINIMIZED_STATE {
+                F_Restore(::core::ptr::null_mut(), pCD, ::core::ptr::null_mut());
+            }
+            F_Raise(::core::ptr::null_mut(), pCD, ::core::ptr::null_mut());
+        }
         F_Focus_Key(
             ::core::ptr::null_mut::<::core::ffi::c_char>(),
             pCD,

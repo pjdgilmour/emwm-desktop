@@ -488,6 +488,13 @@ impl Build {
         }
         run(cmd!("make", "test").current_dir(w.join("emwm")))?;
         run(&mut cmd!("sh", tests.join("tellmwm.sh"), &wm, &tell))?;
+        run(&mut cmd!(
+            "sh",
+            tests.join("overview.sh"),
+            &wm,
+            &compositor,
+            w.join("emwm/src/system.emwmrc")
+        ))?;
         run(cmd!("make", "test-tiling").current_dir(w.join("emwm")))?;
         run(cmd!("make", "test-argb")
             .current_dir(w.join("emwm"))

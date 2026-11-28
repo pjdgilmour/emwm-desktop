@@ -1,0 +1,23 @@
+--- a/src/system.emwmrc
++++ b/src/system.emwmrc
+@@ -63,4 +63,6 @@
+ Buttons DefaultButtonBindings
+ {
++	Super<Btn4Down> root|window|icon f.prev_workspace
++	Super<Btn5Down> root|window|icon f.next_workspace
+ 	<Btn1Down>	icon|frame	f.raise
+ 	<Btn3Down>	icon|frame	f.post_wmenu
+@@ -70,4 +72,6 @@
+ Buttons ExplicitButtonBindings
+ {
++	Super<Btn4Down> root|window|icon f.prev_workspace
++	Super<Btn5Down> root|window|icon f.next_workspace
+ 	<Btn1Down>	frame|icon	f.raise
+ 	<Btn3Down>	frame|icon	f.post_wmenu
+@@ -78,4 +82,6 @@
+ Buttons PointerButtonBindings
+ {
++	Super<Btn4Down> root|window|icon f.prev_workspace
++	Super<Btn5Down> root|window|icon f.next_workspace
+ 	<Btn1Down>	frame|icon	f.raise
+ 	<Btn3Down>	frame|icon	f.post_wmenu

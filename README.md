@@ -87,6 +87,14 @@ A sessão lê seu `.Xprofile`, depois `session.conf`, e carrega os recursos X an
 de iniciar o WM e os utilitários. Logs ficam em
 `~/.local/state/emwm-desktop/session.log` (ou em `XDG_STATE_HOME`).
 
+### Visão geral dos espaços e das janelas
+
+- **Toque em Super** para ver a área de trabalho encolher e revelar as miniaturas dos espaços. O contorno claro indica a seleção. Clique em um espaço para entrar nele.
+- **Super + roda do mouse** troca de espaço diretamente. Role para cima para voltar ou para baixo para avançar. A sequência é circular e também funciona com a visão geral aberta.
+- **Super + Tab** abre o Exposé com as janelas de todos os espaços, inclusive as minimizadas. Clique em uma miniatura para ir ao espaço da janela, restaurá-la se necessário e trazê-la para frente.
+
+Nas duas visões, as **setas** mudam a seleção, **Enter** confirma e **Esc** ou um novo toque em **Super** fecha a visão. As miniaturas usam o compositor do EMWM. A troca direta pela roda funciona também com o compositor desligado. Quem usa botões personalizados em `~/.emwmrc` pode copiar as entradas `Super<Btn4Down>` e `Super<Btn5Down>` de `system.emwmrc` para o conjunto ativo.
+
 ### Posicionamento de janelas
 
 Com uma janela em foco, **Super + ←** e **Super + →** encaixam a janela na metade

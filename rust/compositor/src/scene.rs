@@ -1,9 +1,11 @@
 // SPDX-License-Identifier: GPL-3.0-only
 use crate::{
     effects::Effect,
+    overview::{Mode, Overview},
     renderer::Renderer,
     screen::{Screen, RELOAD, STOP},
     settings::Settings,
+    shortcuts::Shortcuts,
     surface::Surface,
 };
 use std::{
@@ -14,12 +16,15 @@ use std::{
     time::Instant,
 };
 use x11::{
+    keysym::*,
     xlib::{self, *},
     xrandr::XRRUpdateConfiguration,
 };
 
 pub struct Scene {
     // Drop order matters: all images before the GL context and the X connection.
+    view: Option<Overview>,
+    keys: Shortcuts,
     surfaces: HashMap<Window, Surface>,
     renderer: Option<Renderer>,
     x: Screen,
@@ -35,6 +40,8 @@ impl Scene {
         let x = Screen::open()?;
         let settings = Settings::read(&config, &backend);
         let mut scene = Self {
+            view: None,
+            keys: unsafe { Shortcuts::start(&x) },
             surfaces: HashMap::new(),
             renderer: None,
             x,
@@ -49,7 +56,9 @@ impl Scene {
         unsafe {
             scene.configure(false)?;
             scene.stack();
-            scene.run()
+            let result = scene.run();
+            scene.close_view();
+            result
         }
     }
     unsafe fn configure(&mut self, fallback: bool) -> Result<(), String> {
@@ -58,6 +67,7 @@ impl Scene {
             s.image = None;
             s.dirty = true;
         }
+        self.close_view();
         self.renderer.take();
         let x = &self.x;
         let backend = if fallback {
@@ -105,6 +115,7 @@ impl Scene {
     }
     unsafe fn add(&mut self, w: Window) {
         if w == self.x.owner
+            || w == self.x.input
             || w == self.x.overlay
             || self.renderer.as_ref().is_some_and(|r| w == r.output())
         {
@@ -127,8 +138,132 @@ impl Scene {
             }
         }
         self.stack_dirty = false;
+        if let Some(view) = &mut self.view {
+            view.stale = true;
+        }
+    }
+    unsafe fn close_view(&mut self) {
+        if let Some(view) = self.view.take() {
+            view.close(&self.x);
+            self.dirty = true;
+        }
+    }
+
+    unsafe fn choose(&mut self, time: Time) {
+        if let Some(view) = self.view.take() {
+            view.close(&self.x);
+            view.activate(&self.x, &self.surfaces, time);
+            self.dirty = true;
+        }
+    }
+
+    unsafe fn open_view(&mut self, mode: Mode, t: f64) {
+        self.view = Overview::open(&self.x, mode, t);
+        self.sync_view();
+    }
+
+    unsafe fn sync_view(&mut self) {
+        if self.stack_dirty {
+            self.stack();
+        }
+        if let Some(view) = self.view.as_mut().filter(|v| v.stale) {
+            for s in self.surfaces.values_mut().filter(|s| s.metadata_dirty) {
+                s.identify(&self.x);
+            }
+            view.sync(&self.x, &self.order, &self.surfaces);
+        }
+    }
+
+    #[allow(non_upper_case_globals)] // X11 event types and keysyms
+    unsafe fn input(&mut self, e: &mut XEvent, t: f64) -> bool {
+        match e.get_type() {
+            GenericEvent => {
+                if self.keys.tapped(&self.x, &mut e.generic_event_cookie) {
+                    if self.view.is_some() {
+                        self.close_view();
+                    } else {
+                        self.open_view(Mode::Workspaces, t);
+                    }
+                    self.dirty = true;
+                }
+            }
+            MappingNotify => {
+                XRefreshKeyboardMapping(&mut e.mapping);
+                self.keys.remap(&self.x);
+            }
+            KeyPress => {
+                let key = XLookupKeysym(&mut e.key, 0) as u32;
+                if key == XK_Tab && e.key.state & self.keys.super_mask != 0 {
+                    if !self.keys.first_tab_press() {
+                        return true;
+                    }
+                    let already_open = self.view.as_ref().is_some_and(|v| v.mode == Mode::Windows);
+                    self.close_view();
+                    if !already_open {
+                        self.open_view(Mode::Windows, t);
+                    }
+                } else if let Some(view) = &mut self.view {
+                    match key {
+                        XK_Return | XK_KP_Enter => {
+                            self.choose(e.key.time);
+                        }
+                        XK_Escape => self.close_view(),
+                        _ => view.navigate(key),
+                    }
+                }
+                self.dirty = true;
+            }
+            FocusOut if e.focus_change.window == self.x.input => {
+                if e.focus_change.mode == NotifyGrab {
+                    // A locker, menu or modal dialog has taken the keyboard.
+                    self.close_view();
+                } else if e.focus_change.mode == NotifyNormal {
+                    if let Some(view) = &mut self.view {
+                        view.refocus(&self.x);
+                    }
+                }
+            }
+            KeyRelease => {
+                self.keys.released(e.key.keycode);
+            }
+            ButtonPress | ButtonRelease => {
+                if let Some(view) = &mut self.view {
+                    let b = e.button;
+                    match b.button {
+                        1 if b.type_ == ButtonRelease => {
+                            if view.hit(b.x_root, b.y_root).is_some() {
+                                view.hover(b.x_root, b.y_root);
+                                self.choose(b.time);
+                            } else {
+                                self.close_view();
+                            }
+                        }
+                        4 | 5
+                            if b.type_ == ButtonPress
+                                && (b.state & self.keys.super_mask != 0
+                                    || view.mode == Mode::Workspaces) =>
+                        {
+                            view.scroll(&self.x, if b.button == 4 { -1 } else { 1 }, b.time);
+                        }
+                        _ => {}
+                    }
+                    self.dirty = true;
+                }
+            }
+            MotionNotify => {
+                if let Some(view) = &mut self.view {
+                    view.hover(e.motion.x_root, e.motion.y_root);
+                    self.dirty = true;
+                }
+            }
+            _ => return false,
+        }
+        true
     }
     unsafe fn events(&mut self, e: &mut XEvent, t: f64) {
+        if self.input(e, t) {
+            return;
+        }
         let ty = e.get_type();
         if ty == self.x.damage_event || ty == self.x.shape_event {
             // Both notifications have XAnyEvent's common header, followed by drawable/window.
@@ -146,6 +281,9 @@ impl Scene {
         if self.x.randr_event == Some(ty) {
             XRRUpdateConfiguration(e);
             let (w, h) = self.x.dimensions();
+            if let Some(view) = &mut self.view {
+                view.resize(&self.x);
+            }
             if let Some(r) = &mut self.renderer {
                 r.resize(w, h);
             }
@@ -190,7 +328,17 @@ impl Scene {
             xlib::UnmapNotify => {
                 if let Some(s) = self.surfaces.get_mut(&e.unmap.window) {
                     s.mapped = false;
-                    s.image = None;
+                    // The named pixmap remains valid after unmap. Keep the last
+                    // frame for windows on hidden workspaces and minimized apps.
+                    let (w, h) = self.x.dimensions();
+                    let backdrop =
+                        s.attr.override_redirect != 0 && s.attr.width == w && s.attr.height == h;
+                    if !s.application && !backdrop {
+                        s.image = None;
+                    }
+                    if let Some(view) = &mut self.view {
+                        view.stale = true;
+                    }
                     self.dirty = true;
                 }
             }
@@ -202,6 +350,9 @@ impl Scene {
             }
             xlib::ConfigureNotify => {
                 let c = e.configure;
+                if let Some(view) = &mut self.view {
+                    view.stale = true;
+                }
                 if c.window == self.x.root {
                     if let Some(r) = &mut self.renderer {
                         r.resize(c.width, c.height);
@@ -238,12 +389,41 @@ impl Scene {
             xlib::PropertyNotify => {
                 let p = e.property;
                 let a = &self.x.atoms;
+                if [
+                    a.current_desktop,
+                    a.desktop_names,
+                    a.workspace_list,
+                    a.presence,
+                    a.client,
+                    a.window_type,
+                    a.wm_state,
+                    a.state,
+                    a.wm_name,
+                    XA_WM_NAME,
+                    a.wm_info,
+                ]
+                .contains(&p.atom)
+                {
+                    if let Some(view) = &mut self.view {
+                        view.stale = true;
+                        self.dirty = true;
+                    }
+                }
                 if p.window == self.x.root {
                     if p.atom == a.current_desktop {
                         self.cancel();
                         self.dirty = true;
                     }
-                } else if [a.client, a.window_type, a.opacity, a.state].contains(&p.atom) {
+                } else if [
+                    a.client,
+                    a.window_type,
+                    a.opacity,
+                    a.state,
+                    a.wm_state,
+                    a.presence,
+                ]
+                .contains(&p.atom)
+                {
                     for s in self
                         .surfaces
                         .values_mut()
@@ -276,11 +456,20 @@ impl Scene {
         }
     }
     unsafe fn paint(&mut self, t: f64) -> Result<bool, String> {
-        if self.stack_dirty {
-            self.stack();
-        }
+        self.sync_view();
         let r = self.renderer.as_mut().ok_or("Cannot initialize renderer")?;
         r.begin();
+        if let Some(view) = &mut self.view {
+            let duration = if self.settings.effect == Effect::Disabled {
+                0.
+            } else {
+                self.settings.duration as f64 / 1000.
+            };
+            let active = view.paint(&self.x, r, &mut self.surfaces, t, duration)?;
+            r.present();
+            self.dirty = false;
+            return Ok(active);
+        }
         let mut active = false;
         for w in &self.order {
             if let Some(s) = self.surfaces.get_mut(w) {

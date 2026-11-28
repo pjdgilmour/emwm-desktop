@@ -2,12 +2,14 @@
 mod effects;
 mod gl;
 mod native;
+mod overview;
 #[cfg(test)]
 mod pixel_tests;
 mod renderer;
 mod scene;
 mod screen;
 mod settings;
+mod shortcuts;
 mod surface;
 use std::{env, os::unix::ffi::OsStrExt, path::PathBuf, process::ExitCode};
 

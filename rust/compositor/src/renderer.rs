@@ -6,7 +6,7 @@ use crate::{
     native::*,
 };
 use std::{cell::Cell, mem, ptr, rc::Rc};
-use x11::{glx::*, xlib::*, xrender::*};
+use x11::{glx::*, xft::*, xlib::*, xrender::*};
 
 pub struct Image {
     d: *mut Display,
@@ -282,6 +282,74 @@ impl Renderer {
         if let Some(gl) = self.gl.as_ref() {
             gl.refresh(im.texture, im.glpixmap, im.bound.replace(true));
         }
+    }
+    pub unsafe fn fill(&self, rect: Rect, rgb: u32) {
+        let [_, red, green, blue] = rgb.to_be_bytes();
+        if self.accelerated() {
+            glDisable(TEXTURE_2D);
+            glColor4d(
+                red as f64 / 255.,
+                green as f64 / 255.,
+                blue as f64 / 255.,
+                1.,
+            );
+            glBegin(QUADS);
+            for point in rect.quad() {
+                glVertex2d(point.x, point.y);
+            }
+            glEnd();
+        } else {
+            let color = XRenderColor {
+                red: red as u16 * 257,
+                green: green as u16 * 257,
+                blue: blue as u16 * 257,
+                alpha: 65535,
+            };
+            XRenderFillRectangle(
+                self.d,
+                PictOpSrc,
+                self.target,
+                &color,
+                rect.x.round() as _,
+                rect.y.round() as _,
+                rect.w.ceil() as _,
+                rect.h.ceil() as _,
+            );
+        }
+    }
+
+    /// Render UTF-8 once per card; both backends then draw the same caption pixmap.
+    pub unsafe fn caption(&mut self, text: &str, width: i32) -> Result<Rc<Image>, String> {
+        let width = width.clamp(1, 16384);
+        let height = 28;
+        let visual = XDefaultVisual(self.d, self.screen);
+        let depth = XDefaultDepth(self.d, self.screen);
+        let pixmap = XCreatePixmap(self.d, self.overlay, width as _, height, depth as _);
+        let cmap = XDefaultColormap(self.d, self.screen);
+        let draw = XftDrawCreate(self.d, pixmap, visual, cmap);
+        if draw.is_null() {
+            XFreePixmap(self.d, pixmap);
+            return Err("Cannot draw overview caption".into());
+        }
+        let mut color = mem::zeroed();
+        if XftColorAllocName(self.d, visual, cmap, c"#202832".as_ptr(), &mut color) != 0 {
+            XftDrawRect(draw, &color, 0, 0, width as _, height);
+            XftColorFree(self.d, visual, cmap, &mut color);
+        }
+        let font = XftFontOpenName(
+            self.d,
+            self.screen,
+            c"Liberation Sans:pixelsize=15".as_ptr(),
+        );
+        if !font.is_null() {
+            if XftColorAllocName(self.d, visual, cmap, c"white".as_ptr(), &mut color) != 0 {
+                XftDrawStringUtf8(draw, &color, font, 10, 19, text.as_ptr(), text.len() as _);
+                XftColorFree(self.d, visual, cmap, &mut color);
+            }
+            XftFontClose(self.d, font);
+        }
+        XftDrawDestroy(draw);
+        self.image(pixmap, visual, depth, width, height as _)
     }
     pub unsafe fn begin(&self) {
         if self.accelerated() {

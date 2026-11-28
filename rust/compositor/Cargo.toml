@@ -8,4 +8,4 @@ publish = false
 
 [dependencies]
 libc = "0.2"
-x11 = { version = "2.21", features = ["xlib", "xrender", "xfixes", "xrandr", "glx"] }
+x11 = { version = "2.21", features = ["xlib", "xrender", "xfixes", "xrandr", "glx", "xinput", "xft"] }

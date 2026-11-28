@@ -29,6 +29,9 @@ pub struct Surface {
     pub mapped: bool,
     pub desktop: bool,
     pub managed: bool,
+    pub application: bool,
+    pub workspaces: Vec<Atom>,
+    pub minimized: bool,
     shadow: bool,
     pub dirty: bool,
     shaped: bool,
@@ -58,6 +61,9 @@ impl Surface {
             mapped: attr.map_state == IsViewable,
             desktop: false,
             managed: false,
+            application: false,
+            workspaces: Vec::new(),
+            minimized: false,
             shadow: false,
             dirty: true,
             shaped: false,
@@ -91,6 +97,13 @@ impl Surface {
         let types = x.property(self.client, a.window_type, XA_ATOM);
         self.desktop = types.contains(&a.desktop);
         let dock = types.contains(&a.dock);
+        let state = x.property(self.client, a.state, XA_ATOM);
+        self.application =
+            self.managed && !self.desktop && !dock && !state.contains(&a.skip_taskbar);
+        if self.managed {
+            self.workspaces = x.property(self.client, a.presence, a.presence);
+            self.minimized = x.property(self.client, a.wm_state, a.wm_state).first() == Some(&3);
+        }
         let mut opacity = x.property(self.client, a.opacity, XA_CARDINAL);
         if opacity.is_empty() {
             opacity = x.property(self.id, a.opacity, XA_CARDINAL);
@@ -107,9 +120,7 @@ impl Surface {
                     && self.attr.depth != 32
                     && (self.attr.width as f64) < (w as f64) * 0.9
                     && (self.attr.height as f64) < (h as f64) * 0.9))
-            && !x
-                .property(self.client, a.state, XA_ATOM)
-                .contains(&a.fullscreen);
+            && !state.contains(&a.fullscreen);
         self.metadata_dirty = false;
     }
     pub unsafe fn update_shape(&mut self, x: &Screen) {
@@ -133,7 +144,7 @@ impl Surface {
         }
         self.shape_dirty = false;
     }
-    unsafe fn capture(&mut self, x: &Screen, r: &mut Renderer) -> Result<(), String> {
+    pub unsafe fn capture(&mut self, x: &Screen, r: &mut Renderer) -> Result<(), String> {
         if self.dirty {
             XDamageSubtract(x.d, self.damage, 0, 0);
         }
